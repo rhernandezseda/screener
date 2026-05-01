@@ -228,7 +228,12 @@ def analyze_ticker(ticker):
             or shutil.which("chromium")
             or shutil.which("chromium-browser")
         )
-        launch_kwargs = {"headless": True, "args": ["--no-sandbox", "--disable-dev-shm-usage"]}
+        launch_kwargs = {"headless": True, "args": [
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--single-process",
+        ]}
         if chromium_path:
             launch_kwargs["executable_path"] = chromium_path
         print(f"  Chromium: {chromium_path or 'playwright default'}", flush=True)
