@@ -115,8 +115,8 @@ class Handler(BaseHTTPRequestHandler):
 
         proc = subprocess.Popen(
             [sys.executable, str(ROOT / "analyze.py"), ticker],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
         )
         _running[ticker] = proc
         print(f"  [server] Started analysis for {ticker} (pid {proc.pid})")
