@@ -143,8 +143,10 @@ def extract_table_page(page):
                     price:         c[3]?.innerText?.trim() || '',
                     revenue_growth:c[5]?.innerText?.trim() || '',
                     avg_volume:    c[6]?.innerText?.trim() || '',
-                    eps_next_year: c[7]?.innerText?.trim() || '',
-                    high_52w_chg:  c[8]?.innerText?.trim() || '',
+                    eps_growth:    c[7]?.innerText?.trim() || '',
+                    eps_next_year: c[8]?.innerText?.trim() || '',
+                    high_52w_chg:  c[9]?.innerText?.trim() || '',
+                    _all: Array.from(c).map((x, i) => i + ':' + x.innerText.trim()),
                 });
             }
         });
@@ -217,7 +219,9 @@ def run_screener():
 
     print(f"  {len(stocks)} stocks extracted from server-filtered results.")
     if stocks:
-        print(f"  First row sample: {stocks[0]}")
+        print(f"  Column map: {stocks[0].get('_all', [])}")
+    for s in stocks:
+        s.pop('_all', None)
     stocks = apply_client_filters(stocks)
     print(f"  {len(stocks)} stocks passed all filters after client-side filtering.")
 
