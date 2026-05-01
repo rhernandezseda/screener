@@ -1,1 +1,1 @@
-window.BACKEND_URL = 'https://screener-production-adca.up.railway.app';
+window.BACKEND_URL = 'https://screener-production-d16c.up.railway.app';

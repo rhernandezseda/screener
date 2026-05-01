@@ -216,6 +216,8 @@ def run_screener():
         browser.close()
 
     print(f"  {len(stocks)} stocks extracted from server-filtered results.")
+    if stocks:
+        print(f"  First row sample: {stocks[0]}")
     stocks = apply_client_filters(stocks)
     print(f"  {len(stocks)} stocks passed all filters after client-side filtering.")
 
