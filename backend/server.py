@@ -83,6 +83,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_analyze(ticker, force=False)
         elif parsed.path == "/reanalyze":
             self._handle_analyze(ticker, force=True)
+        elif parsed.path == "/run-screener":
+            self._handle_run_screener()
         elif parsed.path == "/status":
             self._handle_status(ticker)
         elif parsed.path == "/screener-status":
@@ -188,6 +190,13 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_screener_status(self):
         running = _screener_proc is not None and _screener_proc.poll() is None
         self._json(200, {"running": running})
+
+    def _handle_run_screener(self):
+        if _screener_proc is not None and _screener_proc.poll() is None:
+            self._json(200, {"status": "already_running"})
+            return
+        run_screener()
+        self._json(200, {"status": "started"})
 
     def _handle_status(self, ticker):
         if not ticker:
