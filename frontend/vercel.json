@@ -1,0 +1,4 @@
+{
+  "buildCommand": "echo \"window.BACKEND_URL='$BACKEND_URL';\" > config.js",
+  "outputDirectory": "."
+}
