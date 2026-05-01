@@ -41,7 +41,7 @@ SITE_PRESETS = [
     ("dividendYield", "Dividend Yield",        "No Dividend"),
     ("revenueGrowth", "Revenue Growth",        "Over 20%"),
     ("averageVolume", "Average Volume",        "Over 100K"),
-    ("epsGrowth",     "EPS Growth",            None),
+    ("epsGrowthQ",    "EPS Growth",            None),
     ("epsNextYear",   "EPS Growth Next Year",  "Over 0%"),
     ("high52ch",      "Price Change 52W High", None),
 ]
