@@ -218,8 +218,6 @@ def run_screener():
         browser.close()
 
     print(f"  {len(stocks)} stocks extracted from server-filtered results.")
-    if stocks:
-        print(f"  Column map: {stocks[0].get('_all', [])}")
     for s in stocks:
         s.pop('_all', None)
     stocks = apply_client_filters(stocks)
