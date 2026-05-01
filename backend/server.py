@@ -6,8 +6,7 @@ Routes:
   GET /analyze?ticker=X      — kick off analyze.py X in background (skip if JSON exists)
   GET /reanalyze?ticker=X    — delete existing JSON and re-scrape
   GET /status?ticker=X       — {"ready": true/false, "running": true/false}
-  GET /refresh-screener      — re-run screener.py in background
-  GET /screener-status       — {"running": true/false, "ready": true/false}
+  GET /screener-status       — {"running": true/false}
 """
 
 import json
@@ -15,18 +14,45 @@ import os
 import socket
 import subprocess
 import sys
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
+from config import REFRESH_INTERVAL_HOURS
 
 PORT = int(os.environ.get("PORT", 8765))
 ROOT = Path(__file__).parent
 OUTPUT_DIR = ROOT.parent / "output"
 TICKERS_DIR = OUTPUT_DIR / "data" / "tickers"
 
-# Track in-flight jobs: ticker -> Popen
 _running: dict[str, subprocess.Popen] = {}
 _screener_proc = None  # type: subprocess.Popen | None
+
+
+def run_screener():
+    global _screener_proc
+    if _screener_proc is not None and _screener_proc.poll() is None:
+        print("  [scheduler] Screener already running, skipping.")
+        return
+    _screener_proc = subprocess.Popen(
+        [sys.executable, str(ROOT / "screener.py")],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    print(f"  [scheduler] Started screener (pid {_screener_proc.pid})")
+
+
+def screener_scheduler():
+    if REFRESH_INTERVAL_HOURS <= 0:
+        return
+    interval = REFRESH_INTERVAL_HOURS * 3600
+    print(f"  [scheduler] Auto-refresh every {REFRESH_INTERVAL_HOURS}h. Running initial screener...")
+    run_screener()
+    while True:
+        time.sleep(interval)
+        print("  [scheduler] Scheduled refresh triggered.")
+        run_screener()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -41,8 +67,6 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_analyze(ticker, force=True)
         elif parsed.path == "/status":
             self._handle_status(ticker)
-        elif parsed.path == "/refresh-screener":
-            self._handle_refresh_screener()
         elif parsed.path == "/screener-status":
             self._handle_screener_status()
         elif parsed.path.startswith("/data/"):
@@ -99,27 +123,8 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {"status": "started", "ticker": ticker})
 
     def _handle_screener_status(self):
-        global _screener_proc
-        running = False
-        if _screener_proc is not None:
-            if _screener_proc.poll() is None:
-                running = True
-            else:
-                _screener_proc = None
+        running = _screener_proc is not None and _screener_proc.poll() is None
         self._json(200, {"running": running})
-
-    def _handle_refresh_screener(self):
-        global _screener_proc
-        if _screener_proc is not None and _screener_proc.poll() is None:
-            self._json(200, {"status": "already_running"})
-            return
-        _screener_proc = subprocess.Popen(
-            [sys.executable, str(ROOT / "screener.py")],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        print(f"  [server] Started screener refresh (pid {_screener_proc.pid})")
-        self._json(200, {"status": "started"})
 
     def _handle_status(self, ticker):
         if not ticker:
@@ -152,6 +157,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def run():
+    t = threading.Thread(target=screener_scheduler, daemon=True)
+    t.start()
     server = HTTPServer(("0.0.0.0", PORT), Handler)
     server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     print(f"  [server] Listening on port {PORT}")

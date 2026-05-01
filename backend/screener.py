@@ -203,8 +203,9 @@ def run_screener():
     print(f"  {len(stocks)} stocks passed all filters after client-side filtering.")
 
     # Save JSON
+    from html_templates import _build_chips
     ts = datetime.now().isoformat()
-    data = {"timestamp": ts, "count": len(stocks), "stocks": stocks}
+    data = {"timestamp": ts, "count": len(stocks), "chips": _build_chips(), "stocks": stocks}
     json_path = DATA_DIR / "screener.json"
     json_path.write_text(json.dumps(data, indent=2))
     print(f"  Data saved to {json_path}")

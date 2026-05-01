@@ -44,3 +44,8 @@ SITE_PRESETS = [
     ("epsNextYear",   "EPS Growth Next Year",  "Over 0%"),
     ("high52ch",      "Price Change 52W High", None),   # no good preset; client-side only
 ]
+
+# ── Auto-refresh schedule ─────────────────────────────────────────────────────
+# How often the backend automatically re-runs the screener (in hours).
+# Set to 0 to disable auto-refresh.
+REFRESH_INTERVAL_HOURS = 6
