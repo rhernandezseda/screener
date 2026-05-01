@@ -37,21 +37,21 @@ def run_screener():
         return
     _screener_proc = subprocess.Popen(
         [sys.executable, str(ROOT / "screener.py")],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
     )
-    print(f"  [scheduler] Started screener (pid {_screener_proc.pid})")
+    print(f"  [scheduler] Started screener (pid {_screener_proc.pid})", flush=True)
 
 
 def screener_scheduler():
     if REFRESH_INTERVAL_HOURS <= 0:
         return
     interval = REFRESH_INTERVAL_HOURS * 3600
-    print(f"  [scheduler] Auto-refresh every {REFRESH_INTERVAL_HOURS}h. Running initial screener...")
+    print(f"  [scheduler] Auto-refresh every {REFRESH_INTERVAL_HOURS}h. Running initial screener...", flush=True)
     run_screener()
     while True:
         time.sleep(interval)
-        print("  [scheduler] Scheduled refresh triggered.")
+        print("  [scheduler] Scheduled refresh triggered.", flush=True)
         run_screener()
 
 
