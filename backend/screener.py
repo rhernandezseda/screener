@@ -180,13 +180,19 @@ def run_screener():
     print(f"Target: {SCREENER_URL}\n")
 
     import shutil
-    chromium_path = shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome")
+    chromium_path = shutil.which("chromium") or shutil.which("chromium-browser")
+    if not chromium_path:
+        path_file = Path(__file__).parent / "chromium_path.txt"
+        if path_file.exists():
+            lines = [l.strip() for l in path_file.read_text().splitlines() if l.strip()]
+            if lines:
+                chromium_path = lines[0]
     launch_kwargs = {"headless": True}
     if chromium_path:
         launch_kwargs["executable_path"] = chromium_path
-        print(f"  Chromium: using system binary at {chromium_path}", flush=True)
+        print(f"  Chromium: {chromium_path}", flush=True)
     else:
-        print(f"  Chromium: using playwright default (PLAYWRIGHT_BROWSERS_PATH={os.environ.get('PLAYWRIGHT_BROWSERS_PATH', 'unset')})", flush=True)
+        print(f"  Chromium: playwright default", flush=True)
     with sync_playwright() as p:
         browser = p.chromium.launch(**launch_kwargs)
         ctx = browser.new_context(
