@@ -25,6 +25,8 @@ PORT = int(os.environ.get("PORT", 8765))
 ROOT = Path(__file__).parent
 OUTPUT_DIR = ROOT.parent / "output"
 TICKERS_DIR = OUTPUT_DIR / "data" / "tickers"
+# In Docker: /app/frontend/  Locally: backend/../frontend/
+FRONTEND_DIR = ROOT / "frontend" if (ROOT / "frontend").exists() else ROOT.parent / "frontend"
 
 _running: dict[str, subprocess.Popen] = {}
 _queued: set[str] = set()  # tickers waiting for the chromium lock
@@ -88,12 +90,43 @@ class Handler(BaseHTTPRequestHandler):
         elif parsed.path.startswith("/data/"):
             self._handle_file(parsed.path)
         else:
-            self._json(404, {"error": "not found"})
+            self._handle_frontend(parsed.path)
 
     def _cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+    def _handle_frontend(self, path):
+        # Serve static frontend files; / and /screener.html both → screener.html
+        MIME = {
+            ".html": "text/html",
+            ".js":   "application/javascript",
+            ".css":  "text/css",
+            ".png":  "image/png",
+            ".ico":  "image/x-icon",
+        }
+        name = path.lstrip("/") or "screener.html"
+        # resolve inside FRONTEND_DIR only — no path traversal
+        try:
+            file_path = (FRONTEND_DIR / name).resolve()
+            FRONTEND_DIR.resolve()
+            file_path.relative_to(FRONTEND_DIR.resolve())
+        except (ValueError, Exception):
+            self._json(403, {"error": "forbidden"})
+            return
+        if not file_path.exists():
+            self._json(404, {"error": "not found"})
+            return
+        ext = file_path.suffix.lower()
+        mime = MIME.get(ext, "application/octet-stream")
+        body = file_path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(len(body)))
+        self._cors_headers()
+        self.end_headers()
+        self.wfile.write(body)
 
     def _handle_file(self, path):
         # Serve files from OUTPUT_DIR, restricted to .json under data/
