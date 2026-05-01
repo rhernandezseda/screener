@@ -185,7 +185,7 @@ def run_screener():
         or shutil.which("chromium")
         or shutil.which("chromium-browser")
     )
-    launch_kwargs = {"headless": True}
+    launch_kwargs = {"headless": True, "args": ["--no-sandbox", "--disable-dev-shm-usage"]}
     if chromium_path:
         launch_kwargs["executable_path"] = chromium_path
     print(f"  Chromium: {chromium_path or 'playwright default'}", flush=True)
@@ -198,7 +198,8 @@ def run_screener():
         page = ctx.new_page()
 
         print("Step 1 — Loading screener...")
-        page.goto(SCREENER_URL, wait_until="networkidle", timeout=30000)
+        page.goto(SCREENER_URL, wait_until="domcontentloaded", timeout=60000)
+        page.wait_for_load_state("networkidle", timeout=30000)
         dismiss_cookies(page)
 
         print("Step 2 — Applying filters...")
