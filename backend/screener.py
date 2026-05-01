@@ -181,6 +181,11 @@ def run_screener():
     print(f"Target: {SCREENER_URL}\n")
 
     chromium_path = os.environ.get("CHROMIUM_PATH") or shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome")
+    if not chromium_path:
+        path_file = Path(__file__).parent / ".chromium_path"
+        if path_file.exists():
+            chromium_path = path_file.read_text().strip()
+    print(f"  Chromium: {chromium_path or '(playwright default)'}", flush=True)
     launch_kwargs = {"headless": True}
     if chromium_path:
         launch_kwargs["executable_path"] = chromium_path
