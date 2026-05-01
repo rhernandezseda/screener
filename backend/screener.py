@@ -13,6 +13,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+from config import THRESHOLDS, EXCLUDE_DIVIDENDS, SITE_PRESETS
 
 OUTPUT_DIR = Path(__file__).parent.parent / "output"
 DATA_DIR = OUTPUT_DIR / "data"
@@ -21,27 +22,7 @@ DATA_DIR.mkdir(exist_ok=True)
 
 SCREENER_URL = "https://stockanalysis.com/stocks/screener/"
 
-# (cb_id, label, preset_button_text)
-# Presets are conservative supersets; exact filtering is done client-side after extraction.
-FILTERS = [
-    ("marketCap",     "Market Cap",            "Over 1B"),
-    ("price",         "Stock Price",           "Over 5"),
-    ("dividendYield", "Dividend Yield",        "No Dividend"),
-    ("revenueGrowth", "Revenue Growth",        "Over 20%"),
-    ("averageVolume", "Average Volume",        "Over 100K"),
-    ("epsNextYear",   "EPS Growth Next Year",  "Over 0%"),
-    ("high52ch",      "Price Change 52W High", None),   # no good preset; filter client-side
-]
-
-# Client-side filters applied after extraction (exact thresholds)
-CLIENT_FILTERS = {
-    "market_cap":     ("over",  2_000),       # >$2B (value in millions from site)
-    "price":          ("over",  9),
-    "revenue_growth": ("over",  20),
-    "avg_volume":     ("over",  200_000),
-    "eps_next_year":  ("over",  0),
-    "high_52w_chg":   ("over", -20),
-}
+FILTERS = SITE_PRESETS
 
 
 def dismiss_cookies(page):
@@ -134,24 +115,13 @@ def parse_num(val):
 
 
 def apply_client_filters(stocks):
-    """Apply exact numeric thresholds that the server presets couldn't match exactly."""
-    field_map = {
-        "market_cap":     ("market_cap",     2_000),
-        "price":          ("price",          9),
-        "revenue_growth": ("revenue_growth", 20),
-        "avg_volume":     ("avg_volume",     200_000),
-        "eps_next_year":  ("eps_next_year",  0),
-        "high_52w_chg":   ("high_52w_chg",  -20),
-    }
+    """Apply exact numeric thresholds from config.THRESHOLDS."""
     filtered = []
     for s in stocks:
         keep = True
-        for field, (key, threshold) in field_map.items():
-            val = parse_num(s.get(key, ""))
-            if val is None:
-                keep = False
-                break
-            if val < threshold:
+        for field, threshold in THRESHOLDS.items():
+            val = parse_num(s.get(field, ""))
+            if val is None or val < threshold:
                 keep = False
                 break
         if keep:
@@ -230,7 +200,7 @@ def run_screener():
 
     print(f"  {len(stocks)} stocks extracted from server-filtered results.")
     stocks = apply_client_filters(stocks)
-    print(f"  {len(stocks)} stocks passed all 7 filters after client-side filtering.")
+    print(f"  {len(stocks)} stocks passed all filters after client-side filtering.")
 
     # Save JSON
     ts = datetime.now().isoformat()

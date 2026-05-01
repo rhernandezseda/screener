@@ -5,6 +5,40 @@ html_templates.py — HTML generation for screener.html
 from datetime import datetime
 import json
 import re
+from config import THRESHOLDS, EXCLUDE_DIVIDENDS
+
+
+def _build_chips():
+    """Generate filter chip labels from config values."""
+    t = THRESHOLDS
+    chips = []
+
+    if "market_cap" in t:
+        mc = t["market_cap"]
+        label = f"Market Cap > ${mc // 1000}B" if mc >= 1000 else f"Market Cap > ${mc}M"
+        chips.append(label)
+
+    if "price" in t:
+        chips.append(f"Price > ${t['price']}")
+
+    if EXCLUDE_DIVIDENDS:
+        chips.append("No Dividend")
+
+    if "revenue_growth" in t:
+        chips.append(f"Revenue YoY > {t['revenue_growth']}%")
+
+    if "avg_volume" in t:
+        v = t["avg_volume"]
+        label = f"Avg Volume > {v // 1000}K" if v >= 1000 else f"Avg Volume > {v}"
+        chips.append(label)
+
+    if "eps_next_year" in t:
+        chips.append(f"EPS Next Year > {t['eps_next_year']}%")
+
+    if "high_52w_chg" in t:
+        chips.append(f"Within {abs(t['high_52w_chg'])}% of 52W High")
+
+    return chips
 
 
 def parse_market_cap_sort(val):
@@ -26,6 +60,7 @@ def render_screener(stocks, timestamp):
     ts_human = datetime.now().strftime("%B %d, %Y · %H:%M")
     count = len(stocks)
     stocks_json = json.dumps(stocks)
+    chips_html = "\n    ".join(f'<span class="chip">{c}</span>' for c in _build_chips())
 
     return f"""<!DOCTYPE html>
 <html lang="en" class="dark">
@@ -431,13 +466,7 @@ def render_screener(stocks, timestamp):
   <h1>Screener · US Growth</h1>
   <p class="hero-sub">{ts_human} · via stockanalysis.com</p>
   <div class="chips">
-    <span class="chip">Market Cap &gt; $2B</span>
-    <span class="chip">Price &gt; $9</span>
-    <span class="chip">No Dividend</span>
-    <span class="chip">Revenue YoY &gt; 20%</span>
-    <span class="chip">Avg Volume &gt; 200K</span>
-    <span class="chip">EPS Next Year &gt; 0%</span>
-    <span class="chip">Within 20% of 52W High</span>
+    {chips_html}
   </div>
   <div class="counter">
     <span class="counter-num" id="matchCount">{count}</span>
