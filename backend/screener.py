@@ -9,7 +9,6 @@ Usage:
 
 import json
 import os
-import shutil
 import time
 import re
 from datetime import datetime
@@ -180,18 +179,9 @@ def run_screener():
     print("\n=== Stock Screener ===")
     print(f"Target: {SCREENER_URL}\n")
 
-    chromium_path = os.environ.get("CHROMIUM_PATH") or shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome")
-    if not chromium_path:
-        path_file = Path(__file__).parent / ".chromium_path"
-        if path_file.exists():
-            chromium_path = path_file.read_text().strip()
-    print(f"  Chromium: {chromium_path or '(playwright default)'}", flush=True)
-    launch_kwargs = {"headless": True}
-    if chromium_path:
-        launch_kwargs["executable_path"] = chromium_path
-
+    print(f"  Chromium: via PLAYWRIGHT_BROWSERS_PATH={os.environ.get('PLAYWRIGHT_BROWSERS_PATH', '(default)')}", flush=True)
     with sync_playwright() as p:
-        browser = p.chromium.launch(**launch_kwargs)
+        browser = p.chromium.launch(headless=True)
         ctx = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
             viewport={"width": 1440, "height": 900},
