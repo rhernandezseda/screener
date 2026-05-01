@@ -142,9 +142,9 @@ def extract_table_page(page):
                     market_cap:    c[2]?.innerText?.trim() || '',
                     price:         c[3]?.innerText?.trim() || '',
                     revenue_growth:c[5]?.innerText?.trim() || '',
-                    avg_volume:    c[6]?.innerText?.trim() || '',
-                    eps_next_year: c[7]?.innerText?.trim() || '',
-                    high_52w_chg:  c[8]?.innerText?.trim() || '',
+                    eps_growth:    c[7]?.innerText?.trim() || '',
+                    eps_next_year: c[8]?.innerText?.trim() || '',
+                    high_52w_chg:  c[9]?.innerText?.trim() || '',
                 });
             }
         });

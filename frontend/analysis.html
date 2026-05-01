@@ -416,6 +416,51 @@
   }
   .state-screen h2 { font-size: 20px; margin-bottom: 12px; color: var(--text); }
   .state-screen p  { color: var(--dim); font-size: 13px; line-height: 1.6; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap {
+    width: 320px;
+    margin: 0 auto 28px;
+  }
+  .progress-track {
+    background: var(--surface-border);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: var(--accent);
+    transition: width 1.2s ease;
+    width: 0%;
+  }
+  .progress-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: left;
+  }
+  .progress-step {
+    font-size: 12px;
+    color: var(--dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.3s;
+  }
+  .progress-step.done  { color: var(--gain); }
+  .progress-step.active { color: var(--text); }
+  .progress-step-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--surface-border);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .progress-step.done  .progress-step-dot { background: var(--gain); }
+  .progress-step.active .progress-step-dot { background: var(--accent); box-shadow: 0 0 6px rgba(99,102,241,0.6); }
   .cli-box {
     background: var(--surface-card);
     border: 1px solid var(--surface-border);
@@ -426,14 +471,6 @@
     border-radius: 8px;
     margin: 16px 0;
     letter-spacing: 0.3px;
-  }
-  .spinner {
-    width: 32px; height: 32px;
-    border: 2px solid var(--surface-border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin: 0 auto 20px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -459,7 +496,6 @@
 <!-- MAIN CONTENT (rendered by JS) -->
 <div id="app">
   <div class="state-screen">
-    <div class="spinner"></div>
     <h2>Loading analysis…</h2>
     <p>Reading data file for this ticker.</p>
   </div>
@@ -663,7 +699,7 @@ function render(d) {
     <div class="chart-section">
       <div class="chart-wrap">
         <iframe
-          src="https://s.tradingview.com/widgetembed/?symbol=${ticker}&interval=W&theme=dark&style=1&locale=en&toolbarbg=1a1d27&hideideas=1&range=24M&hidetoptoolbar=0&hidesidetoolbar=1&saveimage=0&studies=%5B%5D"
+          src="https://s.tradingview.com/widgetembed/?symbol=${ticker}&interval=D&theme=dark&style=1&locale=en&toolbarbg=1a1d27&hideideas=1&range=24M&hidetoptoolbar=0&hidesidetoolbar=1&saveimage=0&studies=%5B%5D"
           allowtransparency="true"
           allowfullscreen>
         </iframe>
@@ -709,18 +745,64 @@ function render(d) {
 
 const SERVER = window.BACKEND_URL || 'http://localhost:8765';
 let _pollInterval = null;
+let _progressTimer = null;
 
-function showWaiting(ticker, message) {
-  document.getElementById('app').innerHTML = `
+const STEPS = [
+  { label: 'Starting browser',        duration: 8  },
+  { label: 'Loading overview page',   duration: 20 },
+  { label: 'Loading company profile', duration: 20 },
+  { label: 'Loading financials',      duration: 20 },
+  { label: 'Saving data',             duration: 10 },
+];
+const TOTAL_DURATION = STEPS.reduce((s, x) => s + x.duration, 0);
+
+function buildProgressHTML(ticker, activeStep) {
+  const stepItems = STEPS.map((s, i) => {
+    const cls = i < activeStep ? 'done' : i === activeStep ? 'active' : '';
+    return `<div class="progress-step ${cls}">
+      <span class="progress-step-dot"></span>${s.label}
+    </div>`;
+  }).join('');
+
+  // Progress = all completed steps + half of current step
+  let elapsed = STEPS.slice(0, activeStep).reduce((s, x) => s + x.duration, 0);
+  elapsed += (STEPS[activeStep]?.duration || 0) * 0.5;
+  const pct = Math.min(95, Math.round((elapsed / TOTAL_DURATION) * 100));
+
+  return `
     <div class="state-screen">
-      <div class="spinner"></div>
-      <h2>${message}</h2>
-      <p>This takes about 30–60 seconds. You'll be redirected automatically.</p>
-      <p style="margin-top:16px"><a href="screener.html" style="color:var(--accent)">← Back to Screener</a></p>
+      <h2>Analyzing ${ticker}…</h2>
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-steps">${stepItems}</div>
+      </div>
+      <p style="margin-top:8px">Takes about 60–90 seconds.</p>
+      <p style="margin-top:12px"><a href="screener.html" style="color:var(--accent)">← Back to Screener</a></p>
     </div>`;
 }
 
+function showWaiting(ticker, stepIndex) {
+  document.getElementById('app').innerHTML = buildProgressHTML(ticker, stepIndex ?? 0);
+}
+
+function startProgressAnimation(ticker) {
+  if (_progressTimer) clearTimeout(_progressTimer);
+  let stepIndex = 0;
+  showWaiting(ticker, stepIndex);
+
+  function advance() {
+    if (stepIndex < STEPS.length - 1) {
+      stepIndex++;
+      showWaiting(ticker, stepIndex);
+      _progressTimer = setTimeout(advance, STEPS[stepIndex].duration * 1000);
+    }
+    // stop at last step; polling will finish it when ready
+  }
+  _progressTimer = setTimeout(advance, STEPS[0].duration * 1000);
+}
+
 function showError(ticker, reason) {
+  if (_progressTimer) { clearTimeout(_progressTimer); _progressTimer = null; }
   document.getElementById('app').innerHTML = `
     <div class="state-screen">
       <h2>Analysis unavailable for ${ticker}</h2>
@@ -737,13 +819,12 @@ function startPolling(ticker) {
       .then(r => r.json())
       .then(data => {
         if (data.ready) {
+          if (_progressTimer) { clearTimeout(_progressTimer); _progressTimer = null; }
           clearInterval(_pollInterval);
           fetch(`${SERVER}/data/tickers/${ticker}.json`)
             .then(r => r.json())
             .then(render)
             .catch(() => showError(ticker, 'Data file found but could not be parsed.'));
-        } else if (data.running) {
-          showWaiting(ticker, `Analyzing ${ticker}…`);
         }
       })
       .catch(() => {
@@ -761,6 +842,7 @@ function reanalyze() {
     .then(() => {
       if (btn) btn.textContent = '↺ Analyzing…';
       _pollInterval = null;
+      startProgressAnimation(ticker);
       startPolling(ticker);
     })
     .catch(() => {
@@ -769,10 +851,12 @@ function reanalyze() {
 }
 
 function triggerAndWait(ticker) {
-  showWaiting(ticker, `Starting analysis for ${ticker}…`);
   fetch(`${SERVER}/analyze?ticker=${ticker}`)
     .then(r => r.json())
-    .then(() => startPolling(ticker))
+    .then(() => {
+      startProgressAnimation(ticker);
+      startPolling(ticker);
+    })
     .catch(() => showError(ticker, 'Server is not running.'));
 }
 

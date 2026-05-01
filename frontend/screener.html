@@ -412,8 +412,8 @@
   <select id="sortSelect" onchange="filterAndSort()">
     <option value="market_cap">Market Cap ↓</option>
     <option value="revenue_growth">Revenue YoY ↓</option>
+    <option value="eps_growth">Basic EPS YoY ↓</option>
     <option value="eps_next_year">EPS Next Year ↓</option>
-    <option value="avg_volume">Avg Volume ↓</option>
     <option value="high_52w_chg">Closest to 52W High</option>
     <option value="price">Price ↓</option>
     <option value="ticker">Ticker A–Z</option>
@@ -499,7 +499,7 @@ function renderCard(s) {
       </div>
     </div>
     <div class="price-row">
-      <span class="price-big">${s.price}</span>
+      <span class="price-big">${s.price}$</span>
       <div class="mkt-cap">Market Cap<span>${s.market_cap}</span></div>
     </div>
     <div class="stats-row">
@@ -507,13 +507,13 @@ function renderCard(s) {
         <div class="stat-label">Revenue YoY</div>
         <div class="stat-val">${s.revenue_growth}</div>
       </div>
+      <div class="stat stat-blue">
+        <div class="stat-label">Basic EPS YoY</div>
+        <div class="stat-val">${s.eps_growth}</div>
+      </div>
       <div class="stat stat-purple">
         <div class="stat-label">EPS Next Yr</div>
         <div class="stat-val">${s.eps_next_year}</div>
-      </div>
-      <div class="stat stat-blue">
-        <div class="stat-label">Avg Volume</div>
-        <div class="stat-val">${s.avg_volume}</div>
       </div>
     </div>
     <div class="card-footer">
@@ -540,8 +540,8 @@ function filterAndSort() {
     if (sort === 'market_cap')     return parseNum(b.market_cap)     - parseNum(a.market_cap);
     if (sort === 'price')          return parsePct(b.price)          - parsePct(a.price);
     if (sort === 'revenue_growth') return parsePct(b.revenue_growth) - parsePct(a.revenue_growth);
+    if (sort === 'eps_growth')     return parsePct(b.eps_growth)     - parsePct(a.eps_growth);
     if (sort === 'eps_next_year')  return parsePct(b.eps_next_year)  - parsePct(a.eps_next_year);
-    if (sort === 'avg_volume')     return parseNum(b.avg_volume)     - parseNum(a.avg_volume);
     if (sort === 'high_52w_chg')   return parsePct(b.high_52w_chg)  - parsePct(a.high_52w_chg);
     return 0;
   });

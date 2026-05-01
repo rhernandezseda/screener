@@ -27,7 +27,11 @@ OUTPUT_DIR = ROOT.parent / "output"
 TICKERS_DIR = OUTPUT_DIR / "data" / "tickers"
 
 _running: dict[str, subprocess.Popen] = {}
+_queued: set[str] = set()  # tickers waiting for the chromium lock
 _screener_proc = None  # type: subprocess.Popen | None
+
+# Serialise all Chromium jobs — only one browser process at a time.
+_chromium_lock = threading.Lock()
 
 
 def run_screener():
@@ -35,12 +39,18 @@ def run_screener():
     if _screener_proc is not None and _screener_proc.poll() is None:
         print("  [scheduler] Screener already running, skipping.")
         return
-    _screener_proc = subprocess.Popen(
-        [sys.executable, str(ROOT / "screener.py")],
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-    )
-    print(f"  [scheduler] Started screener (pid {_screener_proc.pid})", flush=True)
+    def _run():
+        global _screener_proc
+        with _chromium_lock:
+            _screener_proc = subprocess.Popen(
+                [sys.executable, str(ROOT / "screener.py")],
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+            )
+            print(f"  [scheduler] Started screener (pid {_screener_proc.pid})", flush=True)
+            _screener_proc.wait()
+            print("  [scheduler] Screener finished.", flush=True)
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def screener_scheduler():
@@ -56,6 +66,12 @@ def screener_scheduler():
 
 
 class Handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._cors_headers()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_GET(self):
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
@@ -74,6 +90,11 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._json(404, {"error": "not found"})
 
+    def _cors_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
     def _handle_file(self, path):
         # Serve files from OUTPUT_DIR, restricted to .json under data/
         safe = path.lstrip("/")
@@ -88,7 +109,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self._cors_headers()
         self.end_headers()
         self.wfile.write(body)
 
@@ -103,7 +124,7 @@ class Handler(BaseHTTPRequestHandler):
             if proc.poll() is not None:
                 del _running[ticker]
 
-        if ticker in _running:
+        if ticker in _running or ticker in _queued:
             self._json(200, {"status": "already_running", "ticker": ticker})
             return
 
@@ -113,13 +134,22 @@ class Handler(BaseHTTPRequestHandler):
                 json_path.unlink()
                 print(f"  [server] Deleted {ticker}.json for re-analysis")
 
-        proc = subprocess.Popen(
-            [sys.executable, str(ROOT / "analyze.py"), ticker],
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-        )
-        _running[ticker] = proc
-        print(f"  [server] Started analysis for {ticker} (pid {proc.pid})")
+        def _run(t):
+            _queued.add(t)
+            print(f"  [server] Queued analysis for {t} (waiting for Chromium lock)", flush=True)
+            with _chromium_lock:
+                _queued.discard(t)
+                proc = subprocess.Popen(
+                    [sys.executable, str(ROOT / "analyze.py"), t],
+                    stdout=sys.stdout,
+                    stderr=sys.stderr,
+                )
+                _running[t] = proc
+                print(f"  [server] Started analysis for {t} (pid {proc.pid})", flush=True)
+                proc.wait()
+                print(f"  [server] Analysis finished for {t}.", flush=True)
+
+        threading.Thread(target=_run, args=(ticker,), daemon=True).start()
         self._json(200, {"status": "started", "ticker": ticker})
 
     def _handle_screener_status(self):
@@ -133,8 +163,8 @@ class Handler(BaseHTTPRequestHandler):
 
         ready = (TICKERS_DIR / f"{ticker}.json").exists()
 
-        running = False
-        if ticker in _running:
+        running = ticker in _queued
+        if not running and ticker in _running:
             proc = _running[ticker]
             if proc.poll() is None:
                 running = True
@@ -148,7 +178,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self._cors_headers()
         self.end_headers()
         self.wfile.write(body)
 
