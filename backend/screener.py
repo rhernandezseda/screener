@@ -144,9 +144,9 @@ def extract_table_page(page):
                     revenue_growth:c[5]?.innerText?.trim() || '',
                     avg_volume:    c[6]?.innerText?.trim() || '',
                     eps_growth:    c[7]?.innerText?.trim() || '',
-                    eps_next_year: c[8]?.innerText?.trim() || '',
-                    high_52w_chg:  c[9]?.innerText?.trim() || '',
-                    _all: Array.from(c).map((x, i) => i + ':' + x.innerText.trim()),
+                    eps_growth_q:  c[8]?.innerText?.trim() || '',
+                    eps_next_year: c[9]?.innerText?.trim() || '',
+                    high_52w_chg:  c[10]?.innerText?.trim() || '',
                 });
             }
         });

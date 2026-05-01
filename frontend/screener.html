@@ -288,7 +288,7 @@
   /* stats */
   .stats-row {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
     padding: 12px 16px 16px;
     gap: 0;
     border-bottom: 1px solid var(--surface-border);
@@ -412,7 +412,8 @@
   <select id="sortSelect" onchange="filterAndSort()">
     <option value="market_cap">Market Cap ↓</option>
     <option value="revenue_growth">Revenue YoY ↓</option>
-    <option value="eps_growth">Basic EPS YoY ↓</option>
+    <option value="eps_growth">EPS QoQ ↓</option>
+    <option value="eps_growth_q">EPS YoY ↓</option>
     <option value="eps_next_year">EPS Next Year ↓</option>
     <option value="high_52w_chg">Closest to 52W High</option>
     <option value="price">Price ↓</option>
@@ -508,8 +509,12 @@ function renderCard(s) {
         <div class="stat-val">${s.revenue_growth}</div>
       </div>
       <div class="stat stat-blue">
-        <div class="stat-label">Basic EPS YoY</div>
+        <div class="stat-label">EPS QoQ</div>
         <div class="stat-val">${s.eps_growth || '-'}</div>
+      </div>
+      <div class="stat stat-blue">
+        <div class="stat-label">EPS YoY</div>
+        <div class="stat-val">${s.eps_growth_q || '-'}</div>
       </div>
       <div class="stat stat-purple">
         <div class="stat-label">EPS Next Yr</div>
@@ -541,6 +546,7 @@ function filterAndSort() {
     if (sort === 'price')          return parsePct(b.price)          - parsePct(a.price);
     if (sort === 'revenue_growth') return parsePct(b.revenue_growth) - parsePct(a.revenue_growth);
     if (sort === 'eps_growth')     return parsePct(b.eps_growth)     - parsePct(a.eps_growth);
+    if (sort === 'eps_growth_q')   return parsePct(b.eps_growth_q)   - parsePct(a.eps_growth_q);
     if (sort === 'eps_next_year')  return parsePct(b.eps_next_year)  - parsePct(a.eps_next_year);
     if (sort === 'high_52w_chg')   return parsePct(b.high_52w_chg)  - parsePct(a.high_52w_chg);
     return 0;
