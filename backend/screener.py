@@ -199,7 +199,7 @@ def run_screener():
 
         print("Step 1 — Loading screener...")
         page.goto(SCREENER_URL, wait_until="domcontentloaded", timeout=60000)
-        page.wait_for_load_state("networkidle", timeout=30000)
+        page.wait_for_selector("table tbody tr", timeout=30000)
         dismiss_cookies(page)
 
         print("Step 2 — Applying filters...")
