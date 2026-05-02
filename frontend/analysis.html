@@ -582,8 +582,8 @@ function render(d) {
   const priceNum = parseFloat((price || '').replace(/[^0-9.]/g, '')) || null;
   let distPct = 'N/A';
   if (hi52wNum && priceNum && hi52wNum > 0) {
-    const d = ((priceNum - hi52wNum) / hi52wNum * 100).toFixed(1);
-    distPct = `${d > 0 ? '+' : ''}${d}%`;
+    const distRaw = ((priceNum - hi52wNum) / hi52wNum * 100).toFixed(1);
+    distPct = `${distRaw > 0 ? '+' : ''}${distRaw}%`;
   }
 
   const newsHTML = news.length
@@ -748,11 +748,10 @@ let _pollInterval = null;
 let _progressTimer = null;
 
 const STEPS = [
-  { label: 'Starting browser',        duration: 8  },
-  { label: 'Loading overview page',   duration: 20 },
-  { label: 'Loading company profile', duration: 20 },
-  { label: 'Loading financials',      duration: 20 },
-  { label: 'Saving data',             duration: 10 },
+  { label: 'Loading overview',    duration: 15 },
+  { label: 'Loading company info', duration: 15 },
+  { label: 'Loading financials',  duration: 15 },
+  { label: 'Saving data',         duration: 5  },
 ];
 const TOTAL_DURATION = STEPS.reduce((s, x) => s + x.duration, 0);
 
@@ -776,7 +775,7 @@ function buildProgressHTML(ticker, activeStep) {
         <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
         <div class="progress-steps">${stepItems}</div>
       </div>
-      <p style="margin-top:8px">Takes about 60–90 seconds.</p>
+      <p style="margin-top:8px">Takes about 30–60 seconds.</p>
       <p style="margin-top:12px"><a href="screener.html" style="color:var(--accent)">← Back to Screener</a></p>
     </div>`;
 }
@@ -812,52 +811,81 @@ function showError(ticker, reason) {
     </div>`;
 }
 
+let _pollCount = 0;
+const POLL_TIMEOUT_STEPS = 300; // 300 * 2s = 10 min max
+
 function startPolling(ticker) {
   if (_pollInterval) return;
+  _pollCount = 0;
   _pollInterval = setInterval(() => {
+    _pollCount++;
+    if (_pollCount > POLL_TIMEOUT_STEPS) {
+      clearInterval(_pollInterval);
+      _pollInterval = null;
+      showError(ticker, 'Analysis is taking longer than expected. The server may still be running — try refreshing in a minute.');
+      return;
+    }
     fetch(`${SERVER}/status?ticker=${ticker}`)
-      .then(r => r.json())
-      .then(data => {
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
         if (data.ready) {
           if (_progressTimer) { clearTimeout(_progressTimer); _progressTimer = null; }
           clearInterval(_pollInterval);
+          _pollInterval = null;
           fetch(`${SERVER}/data/tickers/${ticker}.json`)
-            .then(r => r.json())
-            .then(render)
-            .catch(() => showError(ticker, 'Data file found but could not be parsed.'));
+            .then(function(r) {
+              if (!r.ok) throw new Error('HTTP ' + r.status);
+              return r.json();
+            })
+            .then(function(d) {
+              try {
+                render(d);
+              } catch(e) {
+                showError(ticker, 'Render error: ' + e.message);
+              }
+            })
+            .catch(function(e) {
+              showError(ticker, 'Data file could not be loaded: ' + e.message);
+            });
         }
       })
-      .catch(() => {
+      .catch(function(e) {
         clearInterval(_pollInterval);
-        showError(ticker, 'Server went offline during analysis.');
+        _pollInterval = null;
+        showError(ticker, 'Server unreachable: ' + e.message);
       });
   }, 2000);
 }
 
 function reanalyze() {
-  const btn = document.getElementById('btnReanalyze');
+  var btn = document.getElementById('btnReanalyze');
   if (btn) { btn.disabled = true; btn.textContent = '↺ Starting…'; }
   fetch(`${SERVER}/reanalyze?ticker=${ticker}`)
-    .then(r => r.json())
-    .then(() => {
+    .then(function(r) { return r.json(); })
+    .then(function() {
       if (btn) btn.textContent = '↺ Analyzing…';
       _pollInterval = null;
       startProgressAnimation(ticker);
       startPolling(ticker);
     })
-    .catch(() => {
+    .catch(function(e) {
       if (btn) { btn.disabled = false; btn.textContent = '↺ Re-analyze'; }
     });
 }
 
 function triggerAndWait(ticker) {
   fetch(`${SERVER}/analyze?ticker=${ticker}`)
-    .then(r => r.json())
-    .then(() => {
-      startProgressAnimation(ticker);
-      startPolling(ticker);
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status === 'already_running' || data.status === 'started') {
+        startProgressAnimation(ticker);
+        startPolling(ticker);
+      } else {
+        startProgressAnimation(ticker);
+        startPolling(ticker);
+      }
     })
-    .catch(() => showError(ticker, 'Server is not running.'));
+    .catch(function(e) { showError(ticker, 'Server is not running: ' + e.message); });
 }
 
 // ── Bootstrap ──
@@ -874,9 +902,11 @@ if (!ticker) {
 } else {
   // Try loading existing data first; if missing, trigger analysis automatically
   fetch(`${SERVER}/data/tickers/${ticker}.json`)
-    .then(r => { if (!r.ok) throw new Error('not found'); return r.json(); })
-    .then(render)
-    .catch(() => triggerAndWait(ticker));
+    .then(function(r) { if (!r.ok) throw new Error('not found'); return r.json(); })
+    .then(function(d) {
+      try { render(d); } catch(e) { showError(ticker, 'Render error: ' + e.message); }
+    })
+    .catch(function() { triggerAndWait(ticker); });
 }
 </script>
 </body>
