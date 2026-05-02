@@ -14,7 +14,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
-from config import THRESHOLDS, EXCLUDE_DIVIDENDS, SITE_PRESETS
+from config import SITE_FILTERS, DISPLAY_COLUMNS
 
 OUTPUT_DIR = Path(__file__).parent.parent / "output"
 DATA_DIR = OUTPUT_DIR / "data"
@@ -22,8 +22,6 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 DATA_DIR.mkdir(exist_ok=True)
 
 SCREENER_URL = "https://stockanalysis.com/stocks/screener/"
-
-FILTERS = SITE_PRESETS
 
 
 def dismiss_cookies(page):
@@ -38,12 +36,13 @@ def dismiss_cookies(page):
 
 
 def add_and_configure_filters(page):
-    """Check each filter checkbox, then apply the preset button for each."""
+    """Check filter + display-column checkboxes, then apply each filter's action."""
     print("  Opening filter panel...")
     page.click("text=Add Filters", timeout=10000)
     time.sleep(2)
 
-    for cb_id, label, _ in FILTERS:
+    all_checkboxes = [(cb_id, label) for cb_id, label, _ in SITE_FILTERS] + DISPLAY_COLUMNS
+    for cb_id, label in all_checkboxes:
         try:
             page.locator(f"input#{cb_id}").first.click(timeout=5000)
             time.sleep(0.3)
@@ -53,25 +52,39 @@ def add_and_configure_filters(page):
 
     page.keyboard.press("Escape")
     time.sleep(1)
-    print("  Filters added. Applying presets...")
+    print("  Checkboxes set. Applying filter values...")
 
-    for _, label, preset in FILTERS:
-        if preset is None:
-            print(f"    Skip preset: {label} (client-side only)")
+    for cb_id, label, action in SITE_FILTERS:
+        if action is None:
+            print(f"    Skip: {label} (display only)")
             continue
         try:
             row = page.locator("div.hide-scroll").filter(has_text=label).first
             row_container = row.locator(
                 "xpath=ancestor::div[contains(@class,'flex') and contains(@class,'justify-between')]"
             ).first
-            any_btn = row_container.locator("button[aria-haspopup='menu']").first
-            any_btn.click()
+            dropdown_btn = row_container.locator("button[aria-haspopup='menu']").first
+            dropdown_btn.click()
             time.sleep(0.6)
 
             menu = page.locator("[role='menu']").first
-            menu.locator("button").filter(has_text=preset).first.click(timeout=4000)
-            time.sleep(0.8)
-            print(f"    Set: {label} → {preset}")
+
+            if isinstance(action, tuple):
+                # Custom operator + typed value: ("Over", "2000")
+                op, val = action
+                menu.locator("button").filter(has_text=op).first.click(timeout=4000)
+                time.sleep(0.4)
+                val_input = row_container.locator("input[placeholder='Value']").first
+                val_input.fill(str(val))
+                val_input.press("Enter")
+                time.sleep(0.8)
+                print(f"    Set: {label} → {op} {val}")
+            else:
+                # Preset button click
+                menu.locator("button").filter(has_text=action).first.click(timeout=4000)
+                time.sleep(0.8)
+                print(f"    Set: {label} → {action}")
+
         except Exception as e:
             print(f"    Warning: could not set '{label}': {e}")
 
@@ -113,21 +126,6 @@ def parse_num(val):
     if suffix == "B": return n * 1_000
     if suffix == "K": return n / 1_000
     return n
-
-
-def apply_client_filters(stocks):
-    """Apply exact numeric thresholds from config.THRESHOLDS."""
-    filtered = []
-    for s in stocks:
-        keep = True
-        for field, threshold in THRESHOLDS.items():
-            val = parse_num(s.get(field, ""))
-            if val is None or val < threshold:
-                keep = False
-                break
-        if keep:
-            filtered.append(s)
-    return filtered
 
 
 def extract_table_page(page):
@@ -220,8 +218,6 @@ def run_screener():
     print(f"  {len(stocks)} stocks extracted from server-filtered results.")
     for s in stocks:
         s.pop('_all', None)
-    stocks = apply_client_filters(stocks)
-    print(f"  {len(stocks)} stocks passed all filters after client-side filtering.")
 
     # Save JSON
     from html_templates import _build_chips

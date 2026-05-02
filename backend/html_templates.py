@@ -5,39 +5,34 @@ html_templates.py — HTML generation for screener.html
 from datetime import datetime
 import json
 import re
-from config import THRESHOLDS, EXCLUDE_DIVIDENDS
+from config import SITE_FILTERS
 
 
 def _build_chips():
-    """Generate filter chip labels from config values."""
-    t = THRESHOLDS
+    """Generate filter chip labels from SITE_FILTERS."""
     chips = []
-
-    if "market_cap" in t:
-        mc = t["market_cap"]
-        label = f"Market Cap > ${mc // 1000}B" if mc >= 1000 else f"Market Cap > ${mc}M"
-        chips.append(label)
-
-    if "price" in t:
-        chips.append(f"Price > ${t['price']}")
-
-    if EXCLUDE_DIVIDENDS:
-        chips.append("No Dividend")
-
-    if "revenue_growth" in t:
-        chips.append(f"Revenue YoY > {t['revenue_growth']}%")
-
-    if "avg_volume" in t:
-        v = t["avg_volume"]
-        label = f"Avg Volume > {v // 1000}K" if v >= 1000 else f"Avg Volume > {v}"
-        chips.append(label)
-
-    if "eps_next_year" in t:
-        chips.append(f"EPS Next Year > {t['eps_next_year']}%")
-
-    if "high_52w_chg" in t:
-        chips.append(f"Within {abs(t['high_52w_chg'])}% of 52W High")
-
+    for cb_id, label, action in SITE_FILTERS:
+        if action is None:
+            continue
+        if isinstance(action, tuple):
+            op, val = action
+            if cb_id == "marketCap":
+                v = int(val)
+                chips.append(f"Market Cap > ${v // 1000}B" if v >= 1000 else f"Market Cap > ${v}M")
+            elif cb_id == "price":
+                chips.append(f"Price > ${val}")
+            elif cb_id == "averageVolume":
+                v = int(val)
+                chips.append(f"Avg Volume > {v // 1000}K" if v >= 1000 else f"Avg Volume > {v}")
+            elif cb_id == "high52ch":
+                chips.append(f"Within {abs(int(val))}% of 52W High")
+            else:
+                chips.append(f"{label} {op} {val}")
+        else:
+            if cb_id == "dividendYield" and action == "No Dividend":
+                chips.append("No Dividend")
+            else:
+                chips.append(f"{label}: {action}")
     return chips
 
 
