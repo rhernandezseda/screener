@@ -235,6 +235,7 @@ def render_screener(stocks, timestamp):
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 16px;
     padding: 28px 48px;
+    align-items: start;
   }}
 
   /* ── CARD ── */
@@ -254,96 +255,21 @@ def render_screener(stocks, timestamp):
     transform: translateY(-2px);
     border-color: rgba(99,102,241,0.4);
   }}
-  .card-header {{
-    padding: 16px 16px 12px;
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-  }}
-  .logo-box {{
-    background: var(--surface);
-    border: 1px solid var(--surface-border);
-    border-radius: 8px;
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    overflow: hidden;
-    padding: 4px;
-  }}
-  .logo-box img {{
-    width: 36px;
-    height: 36px;
-    object-fit: contain;
-  }}
-  .logo-fallback {{
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 600;
-    text-align: center;
-  }}
-  .card-title-row {{
-    flex: 1;
-    min-width: 0;
-  }}
-  .ticker-row {{
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 2px;
-  }}
-  .ticker {{
-    font-size: 18px;
-    font-weight: 600;
-    color: #fff;
-    letter-spacing: -0.3px;
-  }}
-  .badge-52w {{
-    font-size: 10px;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 4px;
-    white-space: nowrap;
-  }}
-  .badge-green  {{ background: rgba(34,197,94,0.15);  border: 1px solid rgba(34,197,94,0.3);  color: #22c55e; }}
-  .badge-orange {{ background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); color: #f59e0b; }}
-  .badge-red    {{ background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.3);  color: #ef4444; }}
-  .company-name {{
-    font-size: 12px;
-    color: var(--dim);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }}
 
-  /* price row */
-  .price-row {{
-    background: var(--surface);
-    border-top: 1px solid var(--surface-border);
+  /* chart */
+  .card-chart {{
+    width: 100%;
+    height: 240px;
     border-bottom: 1px solid var(--surface-border);
-    padding: 10px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    overflow: hidden;
+    background: #131722;
   }}
-  .price-big {{
-    font-size: 20px;
-    font-weight: 600;
-    color: #fff;
-    font-variant-numeric: tabular-nums;
-  }}
-  .mkt-cap {{
-    font-size: 11px;
-    color: var(--dim);
-    text-align: right;
-  }}
-  .mkt-cap span {{
+  .card-chart iframe {{
+    width: 100%;
+    height: 100%;
+    border: none;
     display: block;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--muted);
+    pointer-events: none;
   }}
 
   /* stats */
@@ -552,27 +478,33 @@ function badge52w(val) {{
 }}
 
 function renderCard(s) {{
-  const [badgeClass, badgeLabel] = badge52w(s.high_52w_chg);
+  const chartParams = encodeURIComponent(JSON.stringify({{
+    autosize: true,
+    symbol: s.ticker,
+    interval: "D",
+    range: "1M",
+    timezone: "Etc/UTC",
+    theme: "dark",
+    style: "1",
+    locale: "en",
+    backgroundColor: "rgba(19,23,34,0)",
+    gridColor: "rgba(42,45,58,0.5)",
+    hide_top_toolbar: true,
+    hide_legend: true,
+    hide_side_toolbar: true,
+    allow_symbol_change: false,
+    save_image: false,
+    calendar: false,
+    support_host: "https://www.tradingview.com",
+  }}));
 
   return `<div class="card" onclick="handleCardClick('${{s.ticker}}')">
-    <div class="card-header">
-      <div class="logo-box">
-        <img src="https://financialmodelingprep.com/image-stock/${{s.ticker}}.png"
-             alt="${{s.ticker}}"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-        <span class="logo-fallback" style="display:none">${{s.ticker}}</span>
-      </div>
-      <div class="card-title-row">
-        <div class="ticker-row">
-          <span class="ticker">${{s.ticker}}</span>
-          ${{badgeLabel !== 'N/A' ? `<span class="badge-52w ${{badgeClass}}">${{badgeLabel}}</span>` : ''}}
-        </div>
-        <div class="company-name">${{s.name}}</div>
-      </div>
-    </div>
-    <div class="price-row">
-      <span class="price-big">${{s.price}}</span>
-      <div class="mkt-cap">Market Cap<span>${{s.market_cap}}</span></div>
+    <div class="card-chart">
+      <iframe
+        src="https://s.tradingview.com/embed-widget/advanced-chart/?locale=en#${{chartParams}}"
+        loading="lazy"
+        title="Chart ${{s.ticker}}"
+      ></iframe>
     </div>
     <div class="stats-row">
       <div class="stat stat-green">
