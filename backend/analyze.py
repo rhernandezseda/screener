@@ -350,7 +350,7 @@ def build_report(ticker: str, ov: dict, fin: dict, fcast: dict, ath: dict) -> st
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{ticker} · Análisis Fundamental</title>
+<title>{ticker} · Fundamental Analysis</title>
 <style>
   :root {{
     --navy:   {navy};
@@ -796,15 +796,15 @@ def build_report(ticker: str, ov: dict, fin: dict, fcast: dict, ath: dict) -> st
     </div>
     <div class="hero-title">
       <h1>{ov.get("name", ticker)} <span class="ticker-badge">{ticker}</span></h1>
-      <div class="hero-sub">Análisis fundamental y técnico · {month_year}</div>
+      <div class="hero-sub">Fundamental &amp; Technical Analysis · {month_year}</div>
       <div class="hero-sub" style="margin-top:4px">{ov.get("sector", "")} · {ov.get("industry", "")} · {ov.get("exchange", "")}</div>
     </div>
   </div>
   <div class="stat-strip">
     <div class="stat-card">
-      <div class="label">Cotización</div>
+      <div class="label">Price</div>
       <div class="value">{fmt_price(price)}</div>
-      <div class="sub">{fmt_pct(ov.get("price_change_pct"))} hoy</div>
+      <div class="sub">{fmt_pct(ov.get("price_change_pct"))} today</div>
     </div>
     <div class="stat-card">
       <div class="label">Market Cap</div>
@@ -812,7 +812,7 @@ def build_report(ticker: str, ov: dict, fin: dict, fcast: dict, ath: dict) -> st
       <div class="sub">{ov.get("exchange", "")}</div>
     </div>
     <div class="stat-card">
-      <div class="label">Ventas {last_q} YoY</div>
+      <div class="label">Revenue {last_q} YoY</div>
       <div class="value {'pos' if (rev_yoy or 0) >= 0 else 'neg'}">{fmt_pct(rev_yoy)}</div>
       <div class="sub">{fmt_large(fin.get("revenue_last"))}</div>
     </div>
@@ -822,94 +822,94 @@ def build_report(ticker: str, ov: dict, fin: dict, fcast: dict, ath: dict) -> st
       <div class="sub">EPS {fmt_price(eps_last)}</div>
     </div>
     <div class="stat-card">
-      <div class="label">Dist. Máx. Histórico</div>
+      <div class="label">Dist. from ATH</div>
       <div class="value {dist_class}">{fmt_pct(dist_ath)}</div>
       <div class="sub">ATH {fmt_price(ath_close)}</div>
     </div>
   </div>
 </header>
 
-<!-- ── B · DESCRIPCIÓN ── -->
+<!-- ── B · ABOUT ── -->
 <section class="section">
-  <h2 class="section-title">¿A qué se dedica?</h2>
+  <h2 class="section-title">What does it do?</h2>
   <div class="desc-card">
     <p>{description}</p>
     {f'<p style="margin-top:12px; font-size:13px; color:#6b7280">{ov.get("financial_intro","")}</p>' if ov.get("financial_intro") else ""}
     <p style="margin-top:14px; font-size:13px;">
-      <strong>Empleados:</strong> {ov.get("employees","N/A")} &nbsp;·&nbsp;
+      <strong>Employees:</strong> {ov.get("employees","N/A")} &nbsp;·&nbsp;
       <strong>Sector:</strong> <span class="accent">{ov.get("sector","N/A")}</span> &nbsp;·&nbsp;
-      <strong>Industria:</strong> <span class="accent">{ov.get("industry","N/A")}</span>
+      <strong>Industry:</strong> <span class="accent">{ov.get("industry","N/A")}</span>
       {f' &nbsp;·&nbsp; <a href="{ov.get("website")}" target="_blank">{ov.get("website","")}</a>' if ov.get("website") else ""}
     </p>
   </div>
 </section>
 
-<!-- ── C · POSICIÓN COMPETITIVA ── -->
+<!-- ── C · COMPETITIVE POSITION ── -->
 <section class="section">
-  <h2 class="section-title">Posición competitiva</h2>
+  <h2 class="section-title">Competitive Position</h2>
   <div class="competitive-grid">
     <div class="sub-sector-card">
-      <div class="sector-name">{ov.get("industry","Industria principal")}</div>
+      <div class="sector-name">{ov.get("industry","Primary Industry")}</div>
       <div class="position">#1</div>
-      <div class="note">Líder por capitalización bursátil en su sector. Posición dominante respaldada por escala, marca y ecosistema.</div>
+      <div class="note">Leader by market cap in its sector. Dominant position backed by scale, brand, and ecosystem.</div>
     </div>
     <div class="sub-sector-card">
-      <div class="sector-name">Crecimiento de ingresos</div>
+      <div class="sector-name">Revenue Growth</div>
       <div class="position">{fmt_pct(rev_yoy)}</div>
-      <div class="note">Crecimiento interanual último trimestre. Supera la media del sector en {ov.get("sector","su sector")}.</div>
+      <div class="note">Year-over-year growth last quarter. Outpacing sector average in {ov.get("sector","its sector")}.</div>
     </div>
     <div class="sub-sector-card">
-      <div class="sector-name">Rentabilidad</div>
+      <div class="sector-name">Profitability</div>
       <div class="position">{fmt_pct(fin.get("operating_margin_last")) if fin.get("operating_margin_last") else "N/A"}</div>
-      <div class="note">Margen operativo último trimestre. Refleja eficiencia operativa y poder de fijación de precios.</div>
+      <div class="note">Operating margin last quarter. Reflects operational efficiency and pricing power.</div>
     </div>
     <div class="sub-sector-card">
-      <div class="sector-name">Consenso analistas</div>
+      <div class="sector-name">Analyst Consensus</div>
       <div class="position" style="font-size:20px">{ov.get("analysts","N/A")}</div>
-      <div class="note">Precio objetivo consenso: <strong>{ov.get("price_target","N/A")}</strong>. P/E: {ov.get("pe_ratio","N/A")} · P/E fwd: {ov.get("forward_pe","N/A")}</div>
+      <div class="note">Consensus price target: <strong>{ov.get("price_target","N/A")}</strong>. P/E: {ov.get("pe_ratio","N/A")} · Fwd P/E: {ov.get("forward_pe","N/A")}</div>
     </div>
     <div class="rival-block">
-      <h3>Rival principal en {ov.get("sector","el sector")}</h3>
-      <div class="tagline">La mayor amenaza estructural</div>
+      <h3>Key competition in {ov.get("sector","the sector")}</h3>
+      <div class="tagline">Structural competitive threats</div>
       <ul>
-        <li>Competencia directa en el segmento <strong>{ov.get("industry","core")}</strong> con soluciones alternativas de precio agresivo.</li>
-        <li>Potencial de erosión de cuota de mercado si {ticker} no mantiene ritmo de innovación en los próximos 2-3 años.</li>
-        <li>La diferenciación por ecosistema y datos propios es la principal ventaja defensiva de {ticker}.</li>
+        <li>Direct competition in the <strong>{ov.get("industry","core")}</strong> segment with aggressively priced alternatives.</li>
+        <li>Market share erosion risk if {ticker} fails to sustain its pace of innovation over the next 2–3 years.</li>
+        <li>Ecosystem lock-in and proprietary data are {ticker}'s primary defensive moat.</li>
       </ul>
     </div>
   </div>
 </section>
 
-<!-- ── D · POTENCIAL FUTURO ── -->
+<!-- ── D · SECTOR OUTLOOK ── -->
 <section class="section">
-  <h2 class="section-title">Potencial futuro del sector</h2>
+  <h2 class="section-title">Sector Outlook &amp; Catalysts</h2>
   <div class="catalyst-grid">
     <div class="catalyst-card">
       <div class="icon">▲</div>
-      <h4>Crecimiento estructural</h4>
-      <p>El sector <span class="accent">{ov.get("sector","tecnológico")}</span> mantiene vientos de cola seculares impulsados por digitalización, automatización y adopción global de sus soluciones.</p>
+      <h4>Structural Growth</h4>
+      <p>The <span class="accent">{ov.get("sector","technology")}</span> sector maintains secular tailwinds driven by digitalization, automation, and global adoption of its solutions.</p>
     </div>
     <div class="catalyst-card">
       <div class="icon">●</div>
-      <h4>Expansión de márgenes</h4>
-      <p>La combinación de escala operativa y mix de producto hacia servicios de mayor margen apunta a expansión sostenida de rentabilidad en los próximos 3-5 años.</p>
+      <h4>Margin Expansion</h4>
+      <p>A combination of operating leverage and a product mix shift toward higher-margin services points to sustained profitability expansion over the next 3–5 years.</p>
     </div>
     <div class="catalyst-card">
       <div class="icon">■</div>
-      <h4>Catalizadores próximos</h4>
-      <p>Próximas publicaciones de resultados ({ov.get("earnings_date","N/A")}), lanzamientos de producto e iniciativas de IA generativa como palancas de re-rating del múltiplo.</p>
+      <h4>Near-Term Catalysts</h4>
+      <p>Upcoming earnings ({ov.get("earnings_date","N/A")}), product launches, and generative AI initiatives as levers for multiple re-rating.</p>
     </div>
   </div>
   <div class="risks-block">
-    <strong>Riesgos a vigilar:</strong>
-    Ciclo macro adverso · Presión regulatoria · Competencia en IA ·
-    Tipo de cambio · Desaceleración consumidor · Valoración exigente (P/E {ov.get("pe_ratio","N/A")})
+    <strong>Key risks to watch:</strong>
+    Adverse macro cycle · Regulatory pressure · AI competition ·
+    FX headwinds · Consumer slowdown · Demanding valuation (P/E {ov.get("pe_ratio","N/A")})
   </div>
 </section>
 
-<!-- ── E · DATOS FUNDAMENTALES ── -->
+<!-- ── E · FUNDAMENTALS ── -->
 <section class="section">
-  <h2 class="section-title">Datos fundamentales</h2>
+  <h2 class="section-title">Fundamental Data</h2>
   <div class="mktcap-card">
     <div>
       <div class="mktcap-big">{ov.get("market_cap","N/A")}</div>
@@ -941,79 +941,79 @@ def build_report(ticker: str, ov: dict, fin: dict, fcast: dict, ath: dict) -> st
   <div class="tables-grid">
     <table class="data-table">
       <thead>
-        <tr><th colspan="2">{last_q} · Último trimestre reportado</th></tr>
+        <tr><th colspan="2">{last_q} · Last reported quarter</th></tr>
       </thead>
       <tbody>
-        <tr><td>Ventas</td><td>{fmt_large(fin.get("revenue_last"))}</td></tr>
-        <tr><td>Crecimiento ventas YoY</td><td class="{color_class(rev_yoy)}">{fmt_pct(rev_yoy)}</td></tr>
-        <tr><td>Beneficio neto</td><td>{fmt_large(fin.get("net_income_last"))}</td></tr>
-        <tr><td>Crecimiento BN YoY</td><td class="{color_class(ni_yoy)}">{fmt_pct(ni_yoy)}</td></tr>
-        <tr><td>EPS básico</td><td>{fmt_price(fin.get("eps_last"))}</td></tr>
-        <tr><td>Margen bruto</td><td>{fmt_pct(fin.get("gross_margin_last"))}</td></tr>
-        <tr><td>Margen operativo</td><td>{fmt_pct(fin.get("operating_margin_last"))}</td></tr>
+        <tr><td>Revenue</td><td>{fmt_large(fin.get("revenue_last"))}</td></tr>
+        <tr><td>Revenue growth YoY</td><td class="{color_class(rev_yoy)}">{fmt_pct(rev_yoy)}</td></tr>
+        <tr><td>Net income</td><td>{fmt_large(fin.get("net_income_last"))}</td></tr>
+        <tr><td>Net income growth YoY</td><td class="{color_class(ni_yoy)}">{fmt_pct(ni_yoy)}</td></tr>
+        <tr><td>Basic EPS</td><td>{fmt_price(fin.get("eps_last"))}</td></tr>
+        <tr><td>Gross margin</td><td>{fmt_pct(fin.get("gross_margin_last"))}</td></tr>
+        <tr><td>Operating margin</td><td>{fmt_pct(fin.get("operating_margin_last"))}</td></tr>
       </tbody>
     </table>
     <table class="data-table accent-head">
       <thead>
-        <tr><th colspan="2">{next_q} · Previsión analistas · {next_q_date_fmt}</th></tr>
+        <tr><th colspan="2">{next_q} · Analyst estimates · {next_q_date_fmt}</th></tr>
       </thead>
       <tbody>
-        <tr><td>Ventas estimadas</td><td>{fmt_large(rev_next_q)}</td></tr>
-        <tr><td>Crecimiento ventas est.</td><td class="{color_class(rev_next_q_growth)}">{fmt_pct(rev_next_q_growth)}</td></tr>
-        <tr><td>EPS estimado</td><td>{fmt_price(eps_next_q)}</td></tr>
-        <tr><td>Crecimiento EPS est.</td><td class="{color_class(eps_next_q_growth)}">{fmt_pct(eps_next_q_growth)}</td></tr>
-        <tr><td>EPS año fiscal actual</td><td>{fmt_price(fcast.get("eps_this_year"))}</td></tr>
-        <tr><td>EPS próximo año fiscal</td><td>{fmt_price(fcast.get("eps_next_year"))}</td></tr>
-        <tr><td>Consenso analistas</td><td class="accent">{ov.get("analysts","N/A")}</td></tr>
+        <tr><td>Est. revenue</td><td>{fmt_large(rev_next_q)}</td></tr>
+        <tr><td>Est. revenue growth</td><td class="{color_class(rev_next_q_growth)}">{fmt_pct(rev_next_q_growth)}</td></tr>
+        <tr><td>Est. EPS</td><td>{fmt_price(eps_next_q)}</td></tr>
+        <tr><td>Est. EPS growth</td><td class="{color_class(eps_next_q_growth)}">{fmt_pct(eps_next_q_growth)}</td></tr>
+        <tr><td>EPS this fiscal year</td><td>{fmt_price(fcast.get("eps_this_year"))}</td></tr>
+        <tr><td>EPS next fiscal year</td><td>{fmt_price(fcast.get("eps_next_year"))}</td></tr>
+        <tr><td>Analyst consensus</td><td class="accent">{ov.get("analysts","N/A")}</td></tr>
       </tbody>
     </table>
   </div>
 </section>
 
-<!-- ── F · ANÁLISIS TÉCNICO ── -->
+<!-- ── F · TECHNICAL ANALYSIS ── -->
 <section class="section">
-  <h2 class="section-title">Análisis técnico · Distancia a máximos históricos</h2>
+  <h2 class="section-title">Technical Analysis · Distance from All-Time High</h2>
   <div class="technical-grid">
     <div class="ath-block">
       <div class="ath-pct {dist_class}">{fmt_pct(dist_ath)}</div>
-      <div style="color:rgba(255,255,255,0.5); font-size:13px">desde el ATH de cierre</div>
+      <div style="color:rgba(255,255,255,0.5); font-size:13px">from closing ATH</div>
       <ul class="ath-details">
-        <li>Cierre actual <span>{fmt_price(price)}</span></li>
-        <li>ATH cierre <span>{fmt_price(ath_close)}</span></li>
-        <li>Fecha ATH <span>{ath_date}</span></li>
-        <li>Máx. intradía 52s <span>{fmt_price(ov.get("high_52w"))}</span></li>
-        <li>Mín. intradía 52s <span>{fmt_price(ov.get("low_52w"))}</span></li>
+        <li>Current price <span>{fmt_price(price)}</span></li>
+        <li>ATH close <span>{fmt_price(ath_close)}</span></li>
+        <li>ATH date <span>{ath_date}</span></li>
+        <li>52W intraday high <span>{fmt_price(ov.get("high_52w"))}</span></li>
+        <li>52W intraday low <span>{fmt_price(ov.get("low_52w"))}</span></li>
       </ul>
     </div>
     <div class="technical-notes">
-      <h4>Lectura técnica</h4>
+      <h4>Technical Reading</h4>
       <ul>
-        <li>Precio {'a ' + fmt_pct(abs(dist_ath)) + ' del ATH' if dist_ath else 'en zona de ATH'} — {'recuperación en curso' if (dist_ath or 0) < -5 else 'fortaleza relativa destacada'}.</li>
-        <li>Rango 52 semanas: {fmt_price(ov.get("low_52w"))} – {fmt_price(ov.get("high_52w"))}.</li>
-        <li>Precio {'por encima' if price and ov.get("low_52w") and price > ov.get("low_52w",0) else 'cerca'} del mínimo anual; {'espacio de recuperación amplio' if (dist_ath or 0) < -15 else 'tendencia alcista preservada'}.</li>
-        <li>Próximo catalizador: resultados {ov.get("earnings_date","N/A")} — evento clave para dirección técnica.</li>
-        <li>Consenso de analistas <strong class="accent">{ov.get("analysts","N/A")}</strong> con objetivo {ov.get("price_target","N/A")}.</li>
-        <li>Beta {ov.get("beta","N/A")} — {'volatilidad superior al mercado' if ov.get("beta") and float(str(ov.get("beta","1")).replace("N/A","1")) > 1.2 else 'volatilidad moderada en línea con mercado'}.</li>
+        <li>Price {'is ' + fmt_pct(abs(dist_ath)) + ' below ATH' if dist_ath else 'at ATH zone'} — {'recovery in progress' if (dist_ath or 0) < -5 else 'strong relative strength'}.</li>
+        <li>52-week range: {fmt_price(ov.get("low_52w"))} – {fmt_price(ov.get("high_52w"))}.</li>
+        <li>Price {'above' if price and ov.get("low_52w") and price > ov.get("low_52w",0) else 'near'} the annual low; {'ample recovery runway' if (dist_ath or 0) < -15 else 'uptrend intact'}.</li>
+        <li>Next catalyst: earnings {ov.get("earnings_date","N/A")} — key event for technical direction.</li>
+        <li>Analyst consensus <strong class="accent">{ov.get("analysts","N/A")}</strong> with price target {ov.get("price_target","N/A")}.</li>
+        <li>Beta {ov.get("beta","N/A")} — {'above-market volatility' if ov.get("beta") and float(str(ov.get("beta","1")).replace("N/A","1")) > 1.2 else 'moderate volatility in line with market'}.</li>
       </ul>
     </div>
   </div>
 </section>
 
-<!-- ── G · GRÁFICO ── -->
+<!-- ── G · CHART ── -->
 <div class="chart-section">
-  <h2>Gráfico de cotización · 24 meses</h2>
+  <h2>Price Chart · 24 months</h2>
   <div class="chart-wrap">
     <iframe
-      src="https://s.tradingview.com/widgetembed/?symbol={exchange}%3A{ticker}&interval=W&theme=light&style=1&locale=es&toolbarbg=F1F3F6&hideideas=1&range=24M&hidetoptoolbar=0&hidesidetoolbar=1&saveimage=0&studies=%5B%5D"
+      src="https://s.tradingview.com/widgetembed/?symbol={exchange}%3A{ticker}&interval=W&theme=light&style=1&locale=en&toolbarbg=F1F3F6&hideideas=1&range=24M&hidetoptoolbar=0&hidesidetoolbar=1&saveimage=0&studies=%5B%5D"
     ></iframe>
   </div>
 </div>
 
 <!-- ── H · FOOTER ── -->
 <footer>
-  <div><strong>Análisis generado:</strong> {generated} · <strong>Ticker:</strong> {ticker} · <strong>Fuente de datos:</strong> stockanalysis.com</div>
+  <div><strong>Report generated:</strong> {generated} · <strong>Ticker:</strong> {ticker} · <strong>Data source:</strong> stockanalysis.com</div>
   <div class="sources">
-    <strong>Fuentes:</strong>
+    <strong>Sources:</strong>
     <a href="https://stockanalysis.com/stocks/{ticker.lower()}/" target="_blank">stockanalysis.com/stocks/{ticker.lower()}</a> ·
     <a href="https://stockanalysis.com/stocks/{ticker.lower()}/financials/?p=quarterly" target="_blank">Financials</a> ·
     <a href="https://stockanalysis.com/stocks/{ticker.lower()}/forecast/" target="_blank">Forecast</a> ·
