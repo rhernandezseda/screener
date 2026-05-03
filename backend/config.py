@@ -36,6 +36,6 @@ DISPLAY_COLUMNS = [
 ]
 
 # ── Auto-refresh schedule ─────────────────────────────────────────────────────
-# How often the backend automatically re-runs the screener (in hours).
-# Set to 0 to disable auto-refresh.
-REFRESH_INTERVAL_HOURS = 6
+# Day of week to run the screener (0=Monday … 6=Sunday). Set to -1 to disable.
+REFRESH_DAY_OF_WEEK = 6   # Sunday
+REFRESH_INTERVAL_HOURS = 0  # legacy — unused when REFRESH_DAY_OF_WEEK >= 0

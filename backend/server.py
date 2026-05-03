@@ -16,10 +16,11 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
-from config import REFRESH_INTERVAL_HOURS
+from config import REFRESH_INTERVAL_HOURS, REFRESH_DAY_OF_WEEK
 
 PORT = int(os.environ.get("PORT", 8765))
 ROOT = Path(__file__).parent
@@ -83,15 +84,21 @@ def run_screener():
 
 
 def screener_scheduler():
-    if REFRESH_INTERVAL_HOURS <= 0:
+    if REFRESH_DAY_OF_WEEK < 0:
         return
-    interval = REFRESH_INTERVAL_HOURS * 3600
-    print(f"  [scheduler] Auto-refresh every {REFRESH_INTERVAL_HOURS}h. Running initial screener...", flush=True)
+    day_names = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+    print(f"  [scheduler] Weekly auto-refresh on {day_names[REFRESH_DAY_OF_WEEK]}s. Running initial screener...", flush=True)
     run_screener()
+    last_run_week = datetime.now(timezone.utc).isocalendar()[1]
     while True:
-        time.sleep(interval)
-        print("  [scheduler] Scheduled refresh triggered.", flush=True)
-        run_screener()
+        time.sleep(3600)  # check once per hour
+        now = datetime.now(timezone.utc)
+        if now.weekday() == REFRESH_DAY_OF_WEEK:
+            week = now.isocalendar()[1]
+            if week != last_run_week:
+                last_run_week = week
+                print(f"  [scheduler] Weekly refresh triggered ({day_names[REFRESH_DAY_OF_WEEK]}).", flush=True)
+                run_screener()
 
 
 class Handler(BaseHTTPRequestHandler):
