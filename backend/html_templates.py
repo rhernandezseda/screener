@@ -367,6 +367,131 @@ def render_screener(stocks, timestamp):
   .btn-refresh:hover {{ background: rgba(99,102,241,0.2); border-color: var(--accent); }}
   .btn-refresh:disabled {{ opacity: 0.5; cursor: wait; }}
 
+  /* ── TOP PICKS ── */
+  .top-picks {{
+    position: relative;
+    z-index: 1;
+    padding: 24px 48px 8px;
+    border-bottom: 1px solid var(--surface-border);
+  }}
+  .top-picks-header {{
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 16px;
+  }}
+  .top-picks-header h2 {{
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }}
+  .top-picks-meta {{
+    font-size: 11px;
+    color: var(--dim);
+  }}
+  .picks-table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 16px;
+  }}
+  .picks-table th {{
+    text-align: left;
+    padding: 6px 10px;
+    color: var(--dim);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--surface-border);
+    white-space: nowrap;
+  }}
+  .picks-table td {{
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(42,45,58,0.5);
+    vertical-align: middle;
+    white-space: nowrap;
+  }}
+  .picks-table tr:last-child td {{ border-bottom: none; }}
+  .picks-table tr:hover td {{ background: rgba(255,255,255,0.02); cursor: pointer; }}
+  .rank-badge {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: rgba(99,102,241,0.15);
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 11px;
+  }}
+  .rank-badge.gold   {{ background: rgba(245,158,11,0.15); color: #f59e0b; }}
+  .rank-badge.silver {{ background: rgba(156,163,175,0.15); color: #9ca3af; }}
+  .rank-badge.bronze {{ background: rgba(180,83,9,0.15);   color: #b45309; }}
+  .score-bar {{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }}
+  .score-track {{
+    width: 60px;
+    height: 4px;
+    background: var(--surface-border);
+    border-radius: 2px;
+    overflow: hidden;
+  }}
+  .score-fill {{
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent);
+  }}
+  .setup-tag {{
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }}
+  .setup-tag.breakout-squeeze {{ background: rgba(99,102,241,0.15); color: var(--accent); }}
+  .setup-tag.breakout-only    {{ background: rgba(34,197,94,0.12);  color: var(--gain); }}
+  .setup-tag.squeeze-only     {{ background: rgba(245,158,11,0.12); color: var(--warn); }}
+  .setup-tag.momentum-only    {{ background: rgba(6,182,212,0.12);  color: #06b6d4; }}
+  .risk-tag {{
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+  }}
+  .risk-tag.low    {{ background: rgba(34,197,94,0.1);  color: var(--gain); }}
+  .risk-tag.medium {{ background: rgba(245,158,11,0.1); color: var(--warn); }}
+  .risk-tag.high   {{ background: rgba(239,68,68,0.1);  color: var(--loss); }}
+  .top-pick-box {{
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 14px 18px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }}
+  .top-pick-box strong {{ color: var(--text); }}
+  .top-picks-loading {{
+    padding: 20px 0;
+    color: var(--dim);
+    font-size: 12px;
+  }}
+  @media (max-width: 640px) {{
+    .top-picks {{ padding: 16px; }}
+    .picks-table {{ font-size: 11px; }}
+  }}
+
   @media (max-width: 640px) {{
     .hero {{ padding: 28px 16px; }}
     .hero h1 {{ font-size: 20px; }}
@@ -393,6 +518,15 @@ def render_screener(stocks, timestamp):
     <span class="counter-label">stocks pass all 7 filters</span>
   </div>
 </header>
+
+<!-- TOP PICKS -->
+<section class="top-picks" id="topPicksSection">
+  <div class="top-picks-header">
+    <h2>&#9889; Agent Top Picks</h2>
+    <span class="top-picks-meta" id="topPicksMeta">Loading…</span>
+  </div>
+  <div id="topPicksContent"><div class="top-picks-loading">Fetching shortlist…</div></div>
+</section>
 
 <!-- TOOLBAR -->
 <div class="toolbar">
@@ -587,8 +721,103 @@ function observeCharts() {{
   document.querySelectorAll('iframe[data-src]').forEach(el => chartObserver.observe(el));
 }}
 
+// ── Top Picks ──
+function setupTagClass(type) {{
+  if (!type) return '';
+  const t = type.toLowerCase();
+  if (t.includes('breakout') && t.includes('squeeze')) return 'breakout-squeeze';
+  if (t.includes('breakout')) return 'breakout-only';
+  if (t.includes('squeeze'))  return 'squeeze-only';
+  return 'momentum-only';
+}}
+
+function renderTopPicks(data) {{
+  const meta = document.getElementById('topPicksMeta');
+  const content = document.getElementById('topPicksContent');
+  if (!data || !data.top10 || !data.top10.length) {{
+    meta.textContent = 'No data yet';
+    content.innerHTML = '<div class="top-picks-loading">Agent has not run yet — will run after next screener refresh.</div>';
+    return;
+  }}
+  const ts = data.generated_at ? new Date(data.generated_at).toLocaleString('en-US', {{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}}) : '';
+  const vix = data.vix ? ` · VIX ${{data.vix}}` : '';
+  meta.textContent = `${{ts}}${{vix}} · ${{data.top10.length}} picks`;
+
+  const rankClass = r => r === 1 ? 'gold' : r === 2 ? 'silver' : r === 3 ? 'bronze' : '';
+
+  const rows = data.top10.map(p => {{
+    const scoreFill = Math.round(p.score || 0);
+    const siStr = p.si_pct != null ? p.si_pct.toFixed(1) + '%' : '—';
+    const dtcStr = p.days_to_cover != null ? p.days_to_cover.toFixed(1) : '—';
+    const distStr = p.dist_to_52w_high_pct != null ? p.dist_to_52w_high_pct.toFixed(1) + '%' : '—';
+    const volStr = p.volume_ratio != null ? p.volume_ratio.toFixed(1) + 'x' : '—';
+    const chgStr = p.change_pct_today != null
+      ? `<span style="color:${{p.change_pct_today >= 0 ? 'var(--gain)' : 'var(--loss)'}}">${{p.change_pct_today >= 0 ? '+' : ''}}${{p.change_pct_today.toFixed(2)}}%</span>`
+      : '—';
+    return `<tr onclick="handleCardClick('${{p.ticker}}')">
+      <td><span class="rank-badge ${{rankClass(p.rank)}}">${{p.rank}}</span></td>
+      <td><strong style="color:var(--text)">${{p.ticker}}</strong></td>
+      <td>
+        <div class="score-bar">
+          <strong style="color:var(--accent);min-width:24px">${{p.score}}</strong>
+          <div class="score-track"><div class="score-fill" style="width:${{scoreFill}}%"></div></div>
+        </div>
+      </td>
+      <td><span class="setup-tag ${{setupTagClass(p.setup_type)}}">${{p.setup_type || '—'}}</span></td>
+      <td>${{chgStr}}</td>
+      <td>${{volStr}}</td>
+      <td>${{siStr}}</td>
+      <td>${{dtcStr}}</td>
+      <td>${{distStr}}</td>
+      <td><span class="risk-tag ${{(p.risk_flag||'').toLowerCase()}}">${{p.risk_flag || '—'}}</span></td>
+      <td style="color:var(--muted);max-width:280px;white-space:normal;font-size:11px">${{p.thesis || ''}}</td>
+    </tr>`;
+  }}).join('');
+
+  content.innerHTML = `
+    <table class="picks-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Ticker</th><th>Score</th><th>Setup</th>
+          <th>Today</th><th>Vol ratio</th><th>SI%</th><th>DTC</th>
+          <th>To 52W high</th><th>Risk</th><th>Thesis</th>
+        </tr>
+      </thead>
+      <tbody>${{rows}}</tbody>
+    </table>
+    ${{data.top_pick_rationale ? `<div class="top-pick-box"><strong>#1 Pick — ${{data.top10[0]?.ticker}}:</strong> ${{data.top_pick_rationale}}</div>` : ''}}
+  `;
+}}
+
+function loadTopPicks() {{
+  fetch(`${{SERVER}}/data/shortlist.json`)
+    .then(r => {{ if (!r.ok) throw new Error('not ready'); return r.json(); }})
+    .then(data => renderTopPicks(data))
+    .catch(() => {{
+      // Shortlist not ready yet — check if it's running
+      fetch(`${{SERVER}}/shortlist-status`)
+        .then(r => r.json())
+        .then(s => {{
+          const meta = document.getElementById('topPicksMeta');
+          const content = document.getElementById('topPicksContent');
+          if (s.running) {{
+            meta.textContent = 'Agent running…';
+            content.innerHTML = '<div class="top-picks-loading">&#9889; Agent is analyzing the screener results — check back in ~2 minutes.</div>';
+          }} else {{
+            meta.textContent = 'Not yet run';
+            content.innerHTML = '<div class="top-picks-loading">Agent will run automatically after the next screener refresh.</div>';
+          }}
+        }})
+        .catch(() => {{
+          document.getElementById('topPicksMeta').textContent = 'Server offline';
+          document.getElementById('topPicksContent').innerHTML = '<div class="top-picks-loading">Start the server to enable agent ranking.</div>';
+        }});
+    }});
+}}
+
 // Init
 filterAndSort();
+loadTopPicks();
 </script>
 </div>
 </body>

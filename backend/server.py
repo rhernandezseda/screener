@@ -40,6 +40,27 @@ _screener_proc = None  # type: subprocess.Popen | None
 _chromium_lock = threading.Lock()
 
 
+_shortlist_proc = None  # type: subprocess.Popen | None
+
+
+def run_shortlist():
+    global _shortlist_proc
+    if _shortlist_proc is not None and _shortlist_proc.poll() is None:
+        print("  [shortlist] Already running, skipping.", flush=True)
+        return
+    def _run():
+        global _shortlist_proc
+        _shortlist_proc = subprocess.Popen(
+            [sys.executable, str(ROOT / "shortlist.py")],
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+        )
+        print(f"  [shortlist] Started (pid {_shortlist_proc.pid})", flush=True)
+        _shortlist_proc.wait()
+        print("  [shortlist] Finished.", flush=True)
+    threading.Thread(target=_run, daemon=True).start()
+
+
 def run_screener():
     global _screener_proc
     if _screener_proc is not None and _screener_proc.poll() is None:
@@ -56,6 +77,8 @@ def run_screener():
             print(f"  [scheduler] Started screener (pid {_screener_proc.pid})", flush=True)
             _screener_proc.wait()
             print("  [scheduler] Screener finished.", flush=True)
+        # Run shortlist agent automatically after screener completes
+        run_shortlist()
     threading.Thread(target=_run, daemon=True).start()
 
 
@@ -93,6 +116,10 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_status(ticker)
         elif parsed.path == "/screener-status":
             self._handle_screener_status()
+        elif parsed.path == "/shortlist-status":
+            running = _shortlist_proc is not None and _shortlist_proc.poll() is None
+            ready = (DATA_DIR / "shortlist.json").exists()
+            self._json(200, {"running": running, "ready": ready})
         elif parsed.path.startswith("/data/"):
             self._handle_file(parsed.path)
         else:
