@@ -491,6 +491,41 @@ def render_screener(stocks, timestamp):
     margin-bottom: 20px;
   }}
   .top-pick-box strong {{ color: var(--text); }}
+  .pattern-tag {{
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+  }}
+  .pattern-tag.bullish {{ background: rgba(34,197,94,0.12); color: var(--gain); }}
+  .pattern-tag.bearish {{ background: rgba(239,68,68,0.12); color: var(--loss); }}
+  .pattern-tag.none    {{ color: var(--dim); }}
+  .pattern-review {{
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+  }}
+  .pattern-review h4 {{
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--dim);
+    margin-bottom: 10px;
+  }}
+  .pattern-review-line {{
+    font-size: 11px;
+    color: var(--muted);
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(42,45,58,0.4);
+    line-height: 1.5;
+  }}
+  .pattern-review-line:last-child {{ border-bottom: none; }}
+  .pattern-review-line .ticker-label {{ color: var(--text); font-weight: 600; min-width: 40px; display: inline-block; }}
   .top-picks-loading {{
     padding: 20px 0;
     color: var(--dim);
@@ -542,6 +577,7 @@ def render_screener(stocks, timestamp):
 <div class="toolbar">
   <input type="text" id="searchInput" placeholder="Search ticker or name…" oninput="filterAndSort()">
   <select id="sortSelect" onchange="filterAndSort()">
+    <option value="quality">Quality Score ↓</option>
     <option value="market_cap">Market Cap ↓</option>
     <option value="revenue_growth">Revenue YoY ↓</option>
     <option value="eps_next_year">EPS Next Year ↓</option>
@@ -674,6 +710,7 @@ function filterAndSort() {{
   );
 
   filtered.sort((a, b) => {{
+    if (sort === 'quality')       return (b._quality || 0) - (a._quality || 0);
     if (sort === 'ticker')        return a.ticker.localeCompare(b.ticker);
     if (sort === 'market_cap')    return parseNum(b.market_cap) - parseNum(a.market_cap);
     if (sort === 'price')         return parsePct(b.price) - parsePct(a.price);
@@ -741,6 +778,23 @@ function setupTagClass(type) {{
   return 'momentum-only';
 }}
 
+function renderPatternReview(lines) {{
+  if (!lines || !lines.length) return '';
+  const linesHtml = lines.map(line => {{
+    // Highlight ticker label and ⚠️ flag
+    const formatted = line
+      .replace(/^(#\d+\s+)(\w+)/, (_, rank, ticker) =>
+        `${{rank}}<span class="ticker-label">${{ticker}}</span>`)
+      .replace('⚠️', '<span style="color:var(--loss)">⚠️</span>');
+    return `<div class="pattern-review-line">${{formatted}}</div>`;
+  }}).join('');
+  return `
+    <div class="pattern-review">
+      <h4>Chart pattern review (human verification layer)</h4>
+      ${{linesHtml}}
+    </div>`;
+}}
+
 function renderTopPicks(data) {{
   const meta = document.getElementById('topPicksMeta');
   const content = document.getElementById('topPicksContent');
@@ -764,6 +818,17 @@ function renderTopPicks(data) {{
     const chgStr = p.change_pct_today != null
       ? `<span style="color:${{p.change_pct_today >= 0 ? 'var(--gain)' : 'var(--loss)'}}">${{p.change_pct_today >= 0 ? '+' : ''}}${{p.change_pct_today.toFixed(2)}}%</span>`
       : '—';
+
+    const bullish = p.chart_bullish || 'none';
+    const bearish = p.chart_bearish || 'none';
+    const patternCell = (() => {{
+      const parts = [];
+      if (bullish !== 'none') parts.push(`<span class="pattern-tag bullish">&#8679; ${{bullish}}</span>`);
+      if (bearish !== 'none') parts.push(`<span class="pattern-tag bearish">&#8681; ${{bearish}}</span>`);
+      if (parts.length === 0) return '<span class="pattern-tag none">—</span>';
+      return parts.join(' ');
+    }})();
+
     return `<tr onclick="handleCardClick('${{p.ticker}}')">
       <td><span class="rank-badge ${{rankClass(p.rank)}}">${{p.rank}}</span></td>
       <td><strong style="color:var(--text)">${{p.ticker}}</strong></td>
@@ -780,7 +845,8 @@ function renderTopPicks(data) {{
       <td>${{dtcStr}}</td>
       <td>${{distStr}}</td>
       <td><span class="risk-tag ${{(p.risk_flag||'').toLowerCase()}}">${{p.risk_flag || '—'}}</span></td>
-      <td style="color:var(--muted);max-width:280px;white-space:normal;font-size:11px">${{p.thesis || ''}}</td>
+      <td style="max-width:160px;white-space:normal">${{patternCell}}</td>
+      <td style="color:var(--muted);max-width:260px;white-space:normal;font-size:11px">${{p.thesis || ''}}</td>
     </tr>`;
   }}).join('');
 
@@ -790,12 +856,13 @@ function renderTopPicks(data) {{
         <tr>
           <th>#</th><th>Ticker</th><th>Score</th><th>Setup</th>
           <th>Today</th><th>Vol ratio</th><th>SI%</th><th>DTC</th>
-          <th>To 52W high</th><th>Risk</th><th>Thesis</th>
+          <th>To 52W high</th><th>Risk</th><th>Chart pattern</th><th>Thesis</th>
         </tr>
       </thead>
       <tbody>${{rows}}</tbody>
     </table>
     ${{data.top_pick_rationale ? `<div class="top-pick-box"><strong>#1 Pick — ${{data.top10[0]?.ticker}}:</strong> ${{data.top_pick_rationale}}</div>` : ''}}
+    ${{renderPatternReview(data.chart_pattern_review)}}
   `;
 }}
 

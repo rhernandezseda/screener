@@ -220,6 +220,70 @@ def run_screener():
     for s in stocks:
         s.pop('_all', None)
 
+    # ── Post-scrape hard filters ───────────────────────────────────────────────
+    # The site filters can be flaky; enforce all criteria here as a safety net.
+
+    def _parse_mc(mc: str) -> float:
+        mc = mc.strip()
+        if mc.endswith('T'): return float(mc[:-1]) * 1_000
+        if mc.endswith('B'): return float(mc[:-1])
+        if mc.endswith('M'): return float(mc[:-1]) / 1_000
+        return 0.0
+
+    def _parse_pct(s: str):
+        s = s.strip().rstrip('%').replace(',', '')
+        try:
+            return float(s)
+        except ValueError:
+            return None
+
+    before = len(stocks)
+
+    filtered = []
+    for s in stocks:
+        mc    = _parse_mc(s.get('market_cap', ''))
+        h52   = _parse_pct(s.get('high_52w_chg', ''))
+        eps_ny = _parse_pct(s.get('eps_next_year', ''))
+
+        if mc < 2.0:
+            continue                         # under $2B market cap
+        if h52 is not None and h52 < -20:
+            continue                         # more than 20% below 52W high
+        if eps_ny is not None and eps_ny < 0:
+            continue                         # explicitly negative EPS next year
+
+        filtered.append(s)
+
+    removed = before - len(filtered)
+    if removed:
+        print(f"  Post-filter: removed {removed} stocks that failed hard criteria ({len(filtered)} remain).")
+    stocks = filtered
+
+    # ── Data quality score ────────────────────────────────────────────────────
+    # Rewards confirmed data across all key fields. Used as default sort so
+    # stocks with complete, filter-passing data float to the top.
+    def _quality(s: dict) -> int:
+        score = 0
+        mc    = _parse_mc(s.get('market_cap', ''))
+        eps_ny = _parse_pct(s.get('eps_next_year', ''))
+        eps_g  = _parse_pct(s.get('eps_growth', ''))
+        eps_gq = _parse_pct(s.get('eps_growth_q', ''))
+        h52    = _parse_pct(s.get('high_52w_chg', ''))
+
+        if mc >= 2.0:            score += 20   # meets market cap floor
+        if mc >= 10.0:           score += 10   # large cap bonus
+        if eps_ny is not None and eps_ny > 0:  score += 25   # confirmed positive EPS next year
+        if eps_g  is not None:   score += 15   # EPS growth YoY present
+        if eps_gq is not None:   score += 15   # EPS growth QoQ present
+        if h52 is not None:      score += 10   # 52W high change present
+        if h52 is not None and h52 >= -5: score += 5  # near 52W high bonus
+        return score
+
+    for s in stocks:
+        s['_quality'] = _quality(s)
+
+    stocks.sort(key=lambda s: s['_quality'], reverse=True)
+
     # Save JSON
     from html_templates import _build_chips
     ts = datetime.now().isoformat()

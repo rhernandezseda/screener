@@ -25,7 +25,8 @@ from config import REFRESH_INTERVAL_HOURS, REFRESH_DAY_OF_WEEK
 PORT = int(os.environ.get("PORT", 8765))
 ROOT = Path(__file__).parent
 OUTPUT_DIR = ROOT.parent / "output"
-TICKERS_DIR = OUTPUT_DIR / "data" / "tickers"
+DATA_DIR = OUTPUT_DIR / "data"
+TICKERS_DIR = DATA_DIR / "tickers"
 
 def _analysis_path(ticker: str) -> Path:
     """Return the path to the generated HTML report for a ticker."""
