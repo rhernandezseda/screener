@@ -379,6 +379,8 @@ def render_screener(stocks, timestamp):
     align-items: baseline;
     gap: 12px;
     margin-bottom: 16px;
+    cursor: pointer;
+    user-select: none;
   }}
   .top-picks-header h2 {{
     font-size: 14px;
@@ -387,6 +389,13 @@ def render_screener(stocks, timestamp):
     text-transform: uppercase;
     letter-spacing: 0.8px;
   }}
+  .top-picks-toggle {{
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--dim);
+    transition: transform 0.2s;
+  }}
+  .top-picks-toggle.collapsed {{ transform: rotate(-90deg); }}
   .top-picks-meta {{
     font-size: 11px;
     color: var(--dim);
@@ -521,9 +530,10 @@ def render_screener(stocks, timestamp):
 
 <!-- TOP PICKS -->
 <section class="top-picks" id="topPicksSection">
-  <div class="top-picks-header">
+  <div class="top-picks-header" onclick="toggleTopPicks()">
     <h2>&#9889; Agent Top Picks</h2>
     <span class="top-picks-meta" id="topPicksMeta">Loading…</span>
+    <span class="top-picks-toggle" id="topPicksToggle">&#9660;</span>
   </div>
   <div id="topPicksContent"><div class="top-picks-loading">Fetching shortlist…</div></div>
 </section>
@@ -787,6 +797,14 @@ function renderTopPicks(data) {{
     </table>
     ${{data.top_pick_rationale ? `<div class="top-pick-box"><strong>#1 Pick — ${{data.top10[0]?.ticker}}:</strong> ${{data.top_pick_rationale}}</div>` : ''}}
   `;
+}}
+
+function toggleTopPicks() {{
+  const content = document.getElementById('topPicksContent');
+  const toggle = document.getElementById('topPicksToggle');
+  const collapsed = content.style.display === 'none';
+  content.style.display = collapsed ? '' : 'none';
+  toggle.classList.toggle('collapsed', !collapsed);
 }}
 
 function loadTopPicks() {{
