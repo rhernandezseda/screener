@@ -477,8 +477,10 @@ function badge52w(val) {{
 }}
 
 function renderCard(s) {{
+  const exchange = s.exchange || 'NASDAQ';
+  const tvSymbol = `${{exchange}}:${{s.ticker}}`;
   const chartParams = encodeURIComponent(JSON.stringify({{
-    symbol: s.ticker,
+    symbol: tvSymbol,
     dateRange: "1M",
     colorTheme: "dark",
     isTransparent: true,

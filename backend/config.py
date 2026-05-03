@@ -32,6 +32,7 @@ SITE_FILTERS = [
 DISPLAY_COLUMNS = [
     ("epsGrowth",  "EPS Growth"),       # EPS growth YoY (annual)
     ("epsGrowthQ", "EPS Growth (Q)"),   # EPS growth QoQ (quarterly)
+    ("exchange",   "Exchange"),         # NYSE / NASDAQ — used for TradingView symbol prefix
 ]
 
 # ── Auto-refresh schedule ─────────────────────────────────────────────────────

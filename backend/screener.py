@@ -145,6 +145,7 @@ def extract_table_page(page):
                     eps_growth_q:  c[8]?.innerText?.trim() || '',
                     eps_next_year: c[9]?.innerText?.trim() || '',
                     high_52w_chg:  c[10]?.innerText?.trim() || '',
+                    exchange:      c[11]?.innerText?.trim() || '',
                 });
             }
         });
