@@ -790,12 +790,12 @@ function renderTopPicks(data) {{
 }}
 
 function loadTopPicks() {{
-  fetch(`${{SERVER}}/data/shortlist.json`)
+  fetch('/data/shortlist.json')
     .then(r => {{ if (!r.ok) throw new Error('not ready'); return r.json(); }})
     .then(data => renderTopPicks(data))
     .catch(() => {{
       // Shortlist not ready yet — check if it's running
-      fetch(`${{SERVER}}/shortlist-status`)
+      fetch('/shortlist-status')
         .then(r => r.json())
         .then(s => {{
           const meta = document.getElementById('topPicksMeta');
