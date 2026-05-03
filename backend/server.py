@@ -101,6 +101,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _handle_frontend(self, path):
         # Serve static frontend files; / and /screener.html both → screener.html
+        # screener.html is generated into OUTPUT_DIR; all other assets come from FRONTEND_DIR
         MIME = {
             ".html": "text/html",
             ".js":   "application/javascript",
@@ -109,7 +110,23 @@ class Handler(BaseHTTPRequestHandler):
             ".ico":  "image/x-icon",
         }
         name = path.lstrip("/") or "screener.html"
-        # resolve inside FRONTEND_DIR only — no path traversal
+
+        # Route generated HTML to output dir
+        if name == "screener.html":
+            file_path = OUTPUT_DIR / "screener.html"
+            if not file_path.exists():
+                self._json(404, {"error": "screener not yet generated"})
+                return
+            body = file_path.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self._cors_headers()
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        # All other static assets from FRONTEND_DIR
         try:
             file_path = (FRONTEND_DIR / name).resolve()
             FRONTEND_DIR.resolve()
