@@ -2,7 +2,7 @@
 shortlist.py — Momentum ranking agent for screened stocks.
 
 Reads screener.json, enriches each ticker with live yfinance data,
-sends a single Claude Opus call to score and rank them, saves top 10
+sends a single Claude Sonnet call to score and rank them, saves top 10
 to output/data/shortlist.json.
 
 Usage:
@@ -287,7 +287,7 @@ OUTPUT: Return a single valid JSON object with this exact structure:
 
 
 def call_claude(enriched: list, vix, sector_flows: dict) -> dict:
-    """Send all enriched ticker data to Claude Opus for scoring."""
+    """Send all enriched ticker data to Claude Sonnet for scoring."""
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
     # Build compact payload — only fields Claude needs, skip raw hist_5d bulk
@@ -332,9 +332,9 @@ def call_claude(enriched: list, vix, sector_flows: dict) -> dict:
         "tickers": tickers_payload,
     }, indent=2)
 
-    print(f"  Calling Claude Opus with {len(tickers_payload)} tickers...", flush=True)
+    print(f"  Calling Claude Sonnet with {len(tickers_payload)} tickers...", flush=True)
     response = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-sonnet-4-5",
         max_tokens=4096,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_msg}],
@@ -418,7 +418,7 @@ def run_shortlist():
         d["sector_etf"] = flow.get("etf")
 
     # Call Claude
-    print("\n  Sending to Claude Opus...", flush=True)
+    print("\n  Sending to Claude Sonnet...", flush=True)
     result = call_claude(enriched, vix, sector_flows_by_ticker)
 
     # Add metadata
