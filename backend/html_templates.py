@@ -483,7 +483,7 @@ function renderCard(s) {{
     colorTheme: "dark",
     isTransparent: true,
     autosize: true,
-    chartType: "bars",
+    chartType: "candlesticks",
     largeChartUrl: "",
   }}));
 
