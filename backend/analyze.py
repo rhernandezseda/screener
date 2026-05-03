@@ -50,8 +50,11 @@ def extract_sveltekit(html: str) -> list:
     # Convert JS literals to JSON
     raw = re.sub(r'\bvoid\s+0\b', 'null', raw)
     raw = re.sub(r'\bundefined\b', 'null', raw)
-    # Quote unquoted keys
+    # Quote unquoted object keys
     raw = re.sub(r'([{,])\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'\1"\2":', raw)
+    # Fix bare leading-dot decimals: -.07 → -0.07  and  :.5 → :0.5
+    raw = re.sub(r'(-)\.(\d)', r'-0.\2', raw)
+    raw = re.sub(r'([:,\[({])\s*\.(\d)', r'\g<1>0.\2', raw)
     try:
         return json.loads(raw)
     except Exception:
@@ -169,25 +172,46 @@ def get_ath_data(ticker: str) -> dict:
     arr = extract_sveltekit(html)
     if len(arr) < 3:
         return {}
-    history = arr[2].get("data", {}).get("data", [])
-    if not history:
+    outer = arr[2].get("data", {})
+    # Structure: arr[2]['data']['data']['data'] = list of {t, o, h, l, c, v, ...}
+    container = outer.get("data", {})
+    if isinstance(container, dict):
+        history = container.get("data", [])
+    else:
+        history = container
+    if not history or not isinstance(history, list):
         return {}
-    # Find record close
-    ath_entry = max(history, key=lambda x: x.get("c", 0))
+    # Filter to dicts only and find record close
+    records = [x for x in history if isinstance(x, dict)]
+    if not records:
+        return {}
+    ath_entry = max(records, key=lambda x: x.get("c", 0) or 0)
     return {
         "ath_close": ath_entry.get("c"),
         "ath_date": ath_entry.get("t"),
-        "ath_intraday": max(x.get("h", 0) for x in history),
+        "ath_intraday": max((x.get("h", 0) or 0) for x in records),
     }
 
 
 # ── Formatting helpers ────────────────────────────────────────────────────────
 
+def _to_float(n):
+    """Coerce n to float, returning None on failure."""
+    if n is None:
+        return None
+    if isinstance(n, (int, float)):
+        return float(n)
+    try:
+        return float(str(n).replace(",", ""))
+    except (ValueError, TypeError):
+        return None
+
+
 def fmt_large(n):
     if n is None:
         return "N/A"
     if isinstance(n, str):
-        return n
+        return n  # already formatted (e.g. "4.82T")
     if n >= 1e12:
         return f"${n/1e12:.2f}T"
     if n >= 1e9:
@@ -198,29 +222,34 @@ def fmt_large(n):
 
 
 def fmt_pct(n, decimals=2):
-    if n is None:
+    v = _to_float(n)
+    if v is None:
         return "N/A"
-    sign = "+" if n > 0 else ""
-    return f"{sign}{n:.{decimals}f}%"
+    sign = "+" if v > 0 else ""
+    return f"{sign}{v:.{decimals}f}%"
 
 
 def fmt_price(n):
-    if n is None:
+    v = _to_float(n)
+    if v is None:
         return "N/A"
-    return f"${n:,.2f}"
+    return f"${v:,.2f}"
 
 
 def pct_from_ath(price, ath):
-    if not price or not ath or ath == 0:
+    p = _to_float(price)
+    a = _to_float(ath)
+    if not p or not a or a == 0:
         return None
-    return round((price - ath) / ath * 100, 2)
+    return round((p - a) / a * 100, 2)
 
 
 def color_class(val):
     """Return 'pos' or 'neg' CSS class based on numeric value."""
-    if val is None:
+    v = _to_float(val)
+    if v is None:
         return ""
-    return "pos" if val >= 0 else "neg"
+    return "pos" if v >= 0 else "neg"
 
 
 # ── Brand palettes ────────────────────────────────────────────────────────────
