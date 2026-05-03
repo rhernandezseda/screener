@@ -553,9 +553,6 @@ function filterAndSort() {{
   observeCharts();
 }}
 
-// Init
-filterAndSort();
-
 // Load charts sequentially as cards scroll into view, with a small gap
 // between each to avoid saturating TradingView with simultaneous requests.
 let chartQueue = [];
@@ -589,6 +586,9 @@ const chartObserver = new IntersectionObserver((entries) => {{
 function observeCharts() {{
   document.querySelectorAll('iframe[data-src]').forEach(el => chartObserver.observe(el));
 }}
+
+// Init
+filterAndSort();
 </script>
 </div>
 </body>
