@@ -492,8 +492,7 @@ function renderCard(s) {{
   return `<div class="card" onclick="handleCardClick('${{s.ticker}}')">
     <div class="card-chart">
       <iframe
-        src="https://s.tradingview.com/embed-widget/mini-symbol-overview/?locale=en#${{chartParams}}"
-        loading="lazy"
+        data-src="https://s.tradingview.com/embed-widget/mini-symbol-overview/?locale=en#${{chartParams}}"
         title="Chart ${{s.ticker}}"
       ></iframe>
     </div>
@@ -551,10 +550,45 @@ function filterAndSort() {{
     return;
   }}
   grid.innerHTML = filtered.map(s => renderCard(s)).join('');
+  observeCharts();
 }}
 
 // Init
 filterAndSort();
+
+// Load charts sequentially as cards scroll into view, with a small gap
+// between each to avoid saturating TradingView with simultaneous requests.
+let chartQueue = [];
+let chartLoading = false;
+
+function drainChartQueue() {{
+  if (chartLoading || chartQueue.length === 0) return;
+  chartLoading = true;
+  const iframe = chartQueue.shift();
+  if (iframe && iframe.dataset.src) {{
+    iframe.src = iframe.dataset.src;
+    delete iframe.dataset.src;
+  }}
+  setTimeout(() => {{
+    chartLoading = false;
+    drainChartQueue();
+  }}, 300);
+}}
+
+const chartObserver = new IntersectionObserver((entries) => {{
+  entries.forEach(entry => {{
+    if (entry.isIntersecting) {{
+      const iframe = entry.target;
+      chartObserver.unobserve(iframe);
+      chartQueue.push(iframe);
+      drainChartQueue();
+    }}
+  }});
+}}, {{ rootMargin: '200px' }});
+
+function observeCharts() {{
+  document.querySelectorAll('iframe[data-src]').forEach(el => chartObserver.observe(el));
+}}
 </script>
 </div>
 </body>
