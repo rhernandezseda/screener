@@ -490,112 +490,6 @@ def build_report(ticker: str, ov: dict, fin: dict, fcast: dict, ath: dict) -> st
     color: #374151;
   }}
 
-  /* ── COMPETITIVE ── */
-  .competitive-grid {{
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-  }}
-  .sub-sector-card {{
-    background: white;
-    border-left: 6px solid var(--accent);
-    border-radius: 6px;
-    padding: 16px 18px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  }}
-  .sub-sector-card .position {{
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--accent);
-    line-height: 1;
-  }}
-  .sub-sector-card .sector-name {{
-    font-weight: 600;
-    font-size: 13px;
-    color: var(--navy);
-    margin-bottom: 4px;
-  }}
-  .sub-sector-card .note {{
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 6px;
-  }}
-  .rival-block {{
-    background: var(--navy);
-    border-radius: 10px;
-    padding: 28px;
-    color: white;
-    grid-column: span 2;
-  }}
-  .rival-block h3 {{
-    font-size: 18px;
-    color: var(--accent);
-    margin-bottom: 6px;
-  }}
-  .rival-block .tagline {{
-    font-size: 12px;
-    color: rgba(255,255,255,0.45);
-    margin-bottom: 16px;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-  }}
-  .rival-block ul {{
-    list-style: none;
-    padding: 0;
-  }}
-  .rival-block ul li {{
-    padding: 6px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    font-size: 13.5px;
-    color: rgba(255,255,255,0.8);
-  }}
-  .rival-block ul li::before {{
-    content: "▸ ";
-    color: var(--accent);
-  }}
-
-  /* ── SECTOR POTENTIAL ── */
-  .catalyst-grid {{
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 20px;
-  }}
-  .catalyst-card {{
-    background: white;
-    border-top: 4px solid var(--accent);
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  }}
-  .catalyst-card .icon {{
-    font-size: 22px;
-    margin-bottom: 10px;
-    color: var(--accent);
-  }}
-  .catalyst-card h4 {{
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--navy);
-    margin-bottom: 8px;
-  }}
-  .catalyst-card p {{
-    font-size: 13px;
-    color: #4b5563;
-    line-height: 1.65;
-  }}
-  .risks-block {{
-    background: var(--navy);
-    border-radius: 8px;
-    padding: 16px 24px;
-    color: rgba(255,255,255,0.7);
-    font-size: 13px;
-  }}
-  .risks-block strong {{
-    color: white;
-    margin-right: 8px;
-  }}
-
   /* ── FUNDAMENTALS ── */
   .mktcap-card {{
     background: white;
@@ -723,22 +617,22 @@ def build_report(ticker: str, ov: dict, fin: dict, fcast: dict, ath: dict) -> st
     color: var(--navy);
     margin-bottom: 14px;
   }}
-  .technical-notes ul {{
-    list-style: none;
-    padding: 0;
+  .technical-notes table {{
+    width: 100%;
+    border-collapse: collapse;
   }}
-  .technical-notes ul li {{
-    padding: 7px 0;
+  .technical-notes td {{
+    padding: 8px 0;
     border-bottom: 1px solid var(--border);
     font-size: 13.5px;
     color: #374151;
   }}
-  .technical-notes ul li:last-child {{ border-bottom: none; }}
-  .technical-notes ul li::before {{
-    content: "◆ ";
-    color: var(--accent);
-    font-size: 10px;
+  .technical-notes td:last-child {{
+    text-align: right;
+    font-weight: 600;
+    color: var(--navy);
   }}
+  .technical-notes tr:last-child td {{ border-bottom: none; }}
 
   /* ── CHART ── */
   .chart-section {{
@@ -778,8 +672,7 @@ def build_report(ticker: str, ov: dict, fin: dict, fcast: dict, ath: dict) -> st
     .hero-top {{ flex-wrap: wrap; }}
     .hero-title h1 {{ font-size: 28px; }}
     .section {{ padding: 28px 20px; }}
-    .competitive-grid, .catalyst-grid, .tables-grid, .technical-grid {{ grid-template-columns: 1fr; }}
-    .rival-block {{ grid-column: span 1; }}
+    .tables-grid, .technical-grid {{ grid-template-columns: 1fr; }}
     .ath-pct {{ font-size: 64px; }}
     .chart-section {{ padding: 0 20px 28px; }}
     footer {{ padding: 20px; }}
@@ -841,69 +734,6 @@ def build_report(ticker: str, ov: dict, fin: dict, fcast: dict, ath: dict) -> st
       <strong>Industry:</strong> <span class="accent">{ov.get("industry","N/A")}</span>
       {f' &nbsp;·&nbsp; <a href="{ov.get("website")}" target="_blank">{ov.get("website","")}</a>' if ov.get("website") else ""}
     </p>
-  </div>
-</section>
-
-<!-- ── C · COMPETITIVE POSITION ── -->
-<section class="section">
-  <h2 class="section-title">Competitive Position</h2>
-  <div class="competitive-grid">
-    <div class="sub-sector-card">
-      <div class="sector-name">{ov.get("industry","Primary Industry")}</div>
-      <div class="position">#1</div>
-      <div class="note">Leader by market cap in its sector. Dominant position backed by scale, brand, and ecosystem.</div>
-    </div>
-    <div class="sub-sector-card">
-      <div class="sector-name">Revenue Growth</div>
-      <div class="position">{fmt_pct(rev_yoy)}</div>
-      <div class="note">Year-over-year growth last quarter. Outpacing sector average in {ov.get("sector","its sector")}.</div>
-    </div>
-    <div class="sub-sector-card">
-      <div class="sector-name">Profitability</div>
-      <div class="position">{fmt_pct(fin.get("operating_margin_last")) if fin.get("operating_margin_last") else "N/A"}</div>
-      <div class="note">Operating margin last quarter. Reflects operational efficiency and pricing power.</div>
-    </div>
-    <div class="sub-sector-card">
-      <div class="sector-name">Analyst Consensus</div>
-      <div class="position" style="font-size:20px">{ov.get("analysts","N/A")}</div>
-      <div class="note">Consensus price target: <strong>{ov.get("price_target","N/A")}</strong>. P/E: {ov.get("pe_ratio","N/A")} · Fwd P/E: {ov.get("forward_pe","N/A")}</div>
-    </div>
-    <div class="rival-block">
-      <h3>Key competition in {ov.get("sector","the sector")}</h3>
-      <div class="tagline">Structural competitive threats</div>
-      <ul>
-        <li>Direct competition in the <strong>{ov.get("industry","core")}</strong> segment with aggressively priced alternatives.</li>
-        <li>Market share erosion risk if {ticker} fails to sustain its pace of innovation over the next 2–3 years.</li>
-        <li>Ecosystem lock-in and proprietary data are {ticker}'s primary defensive moat.</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- ── D · SECTOR OUTLOOK ── -->
-<section class="section">
-  <h2 class="section-title">Sector Outlook &amp; Catalysts</h2>
-  <div class="catalyst-grid">
-    <div class="catalyst-card">
-      <div class="icon">▲</div>
-      <h4>Structural Growth</h4>
-      <p>The <span class="accent">{ov.get("sector","technology")}</span> sector maintains secular tailwinds driven by digitalization, automation, and global adoption of its solutions.</p>
-    </div>
-    <div class="catalyst-card">
-      <div class="icon">●</div>
-      <h4>Margin Expansion</h4>
-      <p>A combination of operating leverage and a product mix shift toward higher-margin services points to sustained profitability expansion over the next 3–5 years.</p>
-    </div>
-    <div class="catalyst-card">
-      <div class="icon">■</div>
-      <h4>Near-Term Catalysts</h4>
-      <p>Upcoming earnings ({ov.get("earnings_date","N/A")}), product launches, and generative AI initiatives as levers for multiple re-rating.</p>
-    </div>
-  </div>
-  <div class="risks-block">
-    <strong>Key risks to watch:</strong>
-    Adverse macro cycle · Regulatory pressure · AI competition ·
-    FX headwinds · Consumer slowdown · Demanding valuation (P/E {ov.get("pe_ratio","N/A")})
   </div>
 </section>
 
@@ -986,15 +816,18 @@ def build_report(ticker: str, ov: dict, fin: dict, fcast: dict, ath: dict) -> st
       </ul>
     </div>
     <div class="technical-notes">
-      <h4>Technical Reading</h4>
-      <ul>
-        <li>Price {'is ' + fmt_pct(abs(dist_ath)) + ' below ATH' if dist_ath else 'at ATH zone'} — {'recovery in progress' if (dist_ath or 0) < -5 else 'strong relative strength'}.</li>
-        <li>52-week range: {fmt_price(ov.get("low_52w"))} – {fmt_price(ov.get("high_52w"))}.</li>
-        <li>Price {'above' if price and ov.get("low_52w") and price > ov.get("low_52w",0) else 'near'} the annual low; {'ample recovery runway' if (dist_ath or 0) < -15 else 'uptrend intact'}.</li>
-        <li>Next catalyst: earnings {ov.get("earnings_date","N/A")} — key event for technical direction.</li>
-        <li>Analyst consensus <strong class="accent">{ov.get("analysts","N/A")}</strong> with price target {ov.get("price_target","N/A")}.</li>
-        <li>Beta {ov.get("beta","N/A")} — {'above-market volatility' if ov.get("beta") and float(str(ov.get("beta","1")).replace("N/A","1")) > 1.2 else 'moderate volatility in line with market'}.</li>
-      </ul>
+      <h4>Key Levels</h4>
+      <table>
+        <tr><td>52-week high</td><td>{fmt_price(ov.get("high_52w"))}</td></tr>
+        <tr><td>52-week low</td><td>{fmt_price(ov.get("low_52w"))}</td></tr>
+        <tr><td>ATH close</td><td>{fmt_price(ath_close)}</td></tr>
+        <tr><td>ATH intraday</td><td>{fmt_price(ath_intraday)}</td></tr>
+        <tr><td>Distance from ATH</td><td class="{dist_class}">{fmt_pct(dist_ath)}</td></tr>
+        <tr><td>Next earnings</td><td>{ov.get("earnings_date","N/A")}</td></tr>
+        <tr><td>Analyst consensus</td><td class="accent">{ov.get("analysts","N/A")}</td></tr>
+        <tr><td>Price target</td><td>{ov.get("price_target","N/A")}</td></tr>
+        <tr><td>Beta</td><td>{ov.get("beta","N/A")}</td></tr>
+      </table>
     </div>
   </div>
 </section>
