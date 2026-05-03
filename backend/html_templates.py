@@ -259,7 +259,7 @@ def render_screener(stocks, timestamp):
   /* chart */
   .card-chart {{
     width: 100%;
-    height: 280px;
+    height: 220px;
     border-bottom: 1px solid var(--surface-border);
     overflow: hidden;
     background: #131722;
@@ -478,27 +478,20 @@ function badge52w(val) {{
 
 function renderCard(s) {{
   const chartParams = encodeURIComponent(JSON.stringify({{
-    autosize: true,
     symbol: s.ticker,
-    interval: "D",
-    range: "1M",
-    timezone: "Etc/UTC",
-    theme: "dark",
-    style: "1",
-    locale: "en",
-    backgroundColor: "rgba(19,23,34,0)",
-    hide_top_toolbar: true,
-    hide_legend: true,
-    hide_side_toolbar: true,
-    allow_symbol_change: false,
-    save_image: false,
-    calendar: false,
+    dateRange: "1M",
+    colorTheme: "dark",
+    isTransparent: true,
+    autosize: true,
+    chartType: "bars",
+    largeChartUrl: "",
   }}));
 
   return `<div class="card" onclick="handleCardClick('${{s.ticker}}')">
     <div class="card-chart">
       <iframe
-        src="https://s.tradingview.com/embed-widget/advanced-chart/?locale=en#${{chartParams}}"
+        src="https://s.tradingview.com/embed-widget/mini-symbol-overview/?locale=en#${{chartParams}}"
+        loading="lazy"
         title="Chart ${{s.ticker}}"
       ></iframe>
     </div>
