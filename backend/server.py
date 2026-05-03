@@ -25,6 +25,10 @@ PORT = int(os.environ.get("PORT", 8765))
 ROOT = Path(__file__).parent
 OUTPUT_DIR = ROOT.parent / "output"
 TICKERS_DIR = OUTPUT_DIR / "data" / "tickers"
+
+def _analysis_path(ticker: str) -> Path:
+    """Return the path to the generated HTML report for a ticker."""
+    return TICKERS_DIR / f"{ticker}_analisis.html"
 # In Docker: /app/frontend/  Locally: backend/../frontend/
 FRONTEND_DIR = ROOT / "frontend" if (ROOT / "frontend").exists() else ROOT.parent / "frontend"
 
@@ -148,18 +152,23 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _handle_file(self, path):
-        # Serve files from OUTPUT_DIR, restricted to .json under data/
+        # Serve files from OUTPUT_DIR, restricted to data/ subdirectory
         safe = path.lstrip("/")
-        if not safe.startswith("data/") or not safe.endswith(".json"):
+        if not safe.startswith("data/"):
+            self._json(403, {"error": "forbidden"})
+            return
+        if not (safe.endswith(".json") or safe.endswith(".html")):
             self._json(403, {"error": "forbidden"})
             return
         file_path = OUTPUT_DIR / safe
         if not file_path.exists():
             self._json(404, {"error": "not found"})
             return
+        ext = file_path.suffix.lower()
+        mime = "application/json" if ext == ".json" else "text/html"
         body = file_path.read_bytes()
         self.send_response(200)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(body)))
         self._cors_headers()
         self.end_headers()
@@ -181,10 +190,10 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if force:
-            json_path = TICKERS_DIR / f"{ticker}.json"
-            if json_path.exists():
-                json_path.unlink()
-                print(f"  [server] Deleted {ticker}.json for re-analysis")
+            html_path = _analysis_path(ticker)
+            if html_path.exists():
+                html_path.unlink()
+                print(f"  [server] Deleted {ticker}_analisis.html for re-analysis")
 
         def _run(t):
             _queued.add(t)
@@ -220,7 +229,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": "missing ticker"})
             return
 
-        ready = (TICKERS_DIR / f"{ticker}.json").exists()
+        ready = _analysis_path(ticker).exists()
 
         running = ticker in _queued
         if not running and ticker in _running:

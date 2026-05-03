@@ -428,7 +428,7 @@ function refreshScreener() {{
   const btn = document.getElementById('btnRefresh');
   if (btn) {{ btn.disabled = true; btn.textContent = '↺ Refreshing…'; }}
 
-  fetch(`${{SERVER}}/refresh-screener`)
+  fetch(`${{SERVER}}/run-screener`)
     .then(r => r.json())
     .then(() => pollScreener())
     .catch(() => {{
@@ -481,7 +481,7 @@ function renderCard(s) {{
   const tvSymbol = `${{exchange}}:${{s.ticker}}`;
   const chartParams = encodeURIComponent(JSON.stringify({{
     symbol: tvSymbol,
-    dateRange: "1M",
+    dateRange: "3M",
     colorTheme: "dark",
     isTransparent: true,
     autosize: true,
