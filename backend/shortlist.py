@@ -17,7 +17,7 @@ import os
 import sys
 import threading
 import warnings
-from datetime import datetime, timezone
+from datetime import datetime, date, timezone, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -59,12 +59,82 @@ SECTOR_ETF = {
 
 # ── Data fetching ─────────────────────────────────────────────────────────────
 
-def fetch_vix():
+def fetch_market_regime() -> dict:
+    """
+    Compute market regime from VIX + SPY SMA50/SMA200.
+    Returns a structured dict used as context in the scoring prompt.
+    """
+    result = {
+        "vix": None,
+        "vix_regime": "unknown",
+        "spy_trend": "unknown",
+        "regime_label": "Unknown",
+        "score_multiplier": 1.0,
+        "notes": "",
+    }
     try:
-        info = yf.Ticker("^VIX").info
-        return info.get("regularMarketPrice")
+        result["vix"] = yf.Ticker("^VIX").info.get("regularMarketPrice")
     except Exception:
-        return None
+        pass
+
+    try:
+        spy_hist = yf.Ticker("SPY").history(period="200d", interval="1d")["Close"]
+        spy_price = float(spy_hist.iloc[-1])
+        sma50 = float(spy_hist.rolling(50).mean().iloc[-1])
+        sma200 = float(spy_hist.rolling(200).mean().iloc[-1])
+        if spy_price > sma50 > sma200:
+            result["spy_trend"] = "bull_trending"
+        elif spy_price > sma200:
+            result["spy_trend"] = "bull_choppy"
+        elif spy_price > sma50:
+            result["spy_trend"] = "bear_rally"
+        else:
+            result["spy_trend"] = "bear"
+    except Exception:
+        pass
+
+    vix = result["vix"]
+    if vix is not None:
+        if vix < 15:
+            result["vix_regime"] = "low"
+        elif vix < 20:
+            result["vix_regime"] = "normal"
+        elif vix < 25:
+            result["vix_regime"] = "elevated"
+        elif vix < 35:
+            result["vix_regime"] = "high"
+        else:
+            result["vix_regime"] = "crisis"
+
+    # Composite label + score multiplier
+    trend = result["spy_trend"]
+    vix_r = result["vix_regime"]
+    if trend == "bull_trending" and vix_r in ("low", "normal"):
+        result["regime_label"] = "Bull market, normal volatility — full scoring"
+        result["score_multiplier"] = 1.0
+        result["notes"] = "Standard thresholds apply. Breakout setups reliable."
+    elif trend == "bull_trending" and vix_r == "elevated":
+        result["regime_label"] = "Bull trend, elevated volatility — slightly cautious"
+        result["score_multiplier"] = 0.9
+        result["notes"] = "Require volume confirmation on breakouts. Tighten stops."
+    elif trend == "bull_choppy":
+        result["regime_label"] = "Choppy bull — be selective"
+        result["score_multiplier"] = 0.85
+        result["notes"] = "Require 2+ confirming signals. Prefer squeeze setups over pure breakouts."
+    elif trend == "bear_rally":
+        result["regime_label"] = "Bear market rally — high caution"
+        result["score_multiplier"] = 0.7
+        result["notes"] = "Only highest-conviction setups. Rallies in bear markets fail often."
+    elif trend == "bear" or vix_r in ("high", "crisis"):
+        result["regime_label"] = "Bear market / high volatility — defensive"
+        result["score_multiplier"] = 0.6
+        result["notes"] = "Disqualify pure breakout setups. Only catalyst-driven squeeze plays if any."
+    else:
+        result["regime_label"] = "Uncertain regime"
+        result["score_multiplier"] = 0.85
+        result["notes"] = "Regime data incomplete — apply moderate caution."
+
+    return result
 
 
 def fetch_sector_flow(sector: str) -> dict:
@@ -188,6 +258,25 @@ def fetch_ticker_data(screener_row: dict) -> dict:
             "hist_5d":           hist5,
             "ta_indicators":     compute_ta_indicators_from_history(ticker),
         })
+
+        # Earnings date — separate try so a failure here doesn't drop all yfinance data
+        try:
+            cal = t.calendar
+            earnings_dates = cal.get("Earnings Date", []) if cal else []
+            next_earnings = earnings_dates[0] if earnings_dates else None
+            if next_earnings:
+                if isinstance(next_earnings, datetime):
+                    next_earnings = next_earnings.date()
+                today = date.today()
+                days_to_earnings = (next_earnings - today).days
+                base["next_earnings_date"] = str(next_earnings)
+                base["days_to_earnings"] = days_to_earnings
+            else:
+                base["next_earnings_date"] = None
+                base["days_to_earnings"] = None
+        except Exception:
+            base["next_earnings_date"] = None
+            base["days_to_earnings"] = None
 
     except Exception as e:
         base["fetch_error"] = str(e)
@@ -375,6 +464,17 @@ SCORING_SYSTEM_PROMPT = """You are a momentum trading research agent specializin
 Your job is to evaluate a list of screened companies and rank them by their quality as SHORT-TERM
 trading opportunities — meaning setups that are actionable TODAY, not next week or next quarter.
 
+## MARKET REGIME CONTEXT
+The user message includes a `market_regime` object. Read it FIRST and calibrate your scoring:
+- `regime_label`: overall market state (bull_trending | bull_choppy | bear_rally | bear)
+- `score_multiplier`: apply this to ALL final scores before returning (0.6 = crisis, 1.0 = ideal)
+- `vix_regime`: current VIX bucket (low | normal | elevated | high | crisis)
+- `notes`: regime reasoning — use this to set your qualitative risk threshold
+
+In bear or high-VIX regimes: raise the bar for every signal, upgrade risk flags one level, shrink top10 if few setups qualify.
+In bull_trending low-VIX: you can be more generous with borderline setups.
+Always state the regime you applied in the `notes` field of your output.
+
 Each ticker includes a `ta_indicators` object with pre-computed technical signals:
 - `rsi_14`: RSI(14). Overbought >70, oversold <30. Best breakout zone: 55–70 (momentum, not extended).
 - `macd_bullish`: true if MACD histogram is positive (bullish momentum).
@@ -426,7 +526,7 @@ Use these to improve scoring precision:
 ### D. Risk adjustment (start +10, subtract for risks)
 | Risk factor | Deduction |
 |---|---|
-| Earnings within 5 trading days | −8 |
+| days_to_earnings 5–10 (earnings warning zone) | −8 |
 | bid_ask_spread_pct > 0.5% | −4 |
 | VIX > 25 | −3 |
 | change_pct_today < −5% | −5 |
@@ -437,7 +537,7 @@ Use these to improve scoring precision:
 - avg_volume_20d < 500,000
 - bid_ask_spread_pct > 1%
 - price_live < 5
-- Earnings within 3 trading days
+- days_to_earnings < 5 (earnings too close — use the actual `days_to_earnings` field, not a guess)
 
 ## IMPORTANT RULES
 - Use ONLY the data provided. Do not invent or assume any value not present.
@@ -544,7 +644,7 @@ Never add caveats or qualifications inline in pattern fields — clean pattern n
 The ta_chart_notes field is the place for any synthesis."""
 
 
-def call_claude_scoring(enriched: list, vix, sector_flows: dict) -> dict:
+def call_claude_scoring(enriched: list, regime: dict, sector_flows: dict) -> dict:
     """Send all enriched ticker data to Claude Sonnet for scoring and ranking."""
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
@@ -581,10 +681,13 @@ def call_claude_scoring(enriched: list, vix, sector_flows: dict) -> dict:
             "sector_etf":          flow.get("etf"),
             "fetch_error":         d.get("fetch_error"),
             "ta_indicators":       d.get("ta_indicators", {}),
+            "days_to_earnings":    d.get("days_to_earnings"),
+            "next_earnings_date":  d.get("next_earnings_date"),
         })
 
     user_msg = json.dumps({
-        "vix": vix,
+        "market_regime": regime,
+        "vix": regime.get("vix"),
         "ticker_count": len(tickers_payload),
         "tickers": tickers_payload,
     }, indent=2)
@@ -723,10 +826,10 @@ def run_shortlist():
     stocks = data.get("stocks", [])
     print(f"  {len(stocks)} tickers from screener.", flush=True)
 
-    # Fetch VIX once
-    print("  Fetching VIX...", flush=True)
-    vix = fetch_vix()
-    print(f"  VIX: {vix}", flush=True)
+    # Fetch market regime (VIX + SPY trend)
+    print("  Fetching market regime...", flush=True)
+    regime = fetch_market_regime()
+    print(f"  Regime: {regime.get('regime_label')} | VIX={regime.get('vix')} ({regime.get('vix_regime')}) | multiplier={regime.get('score_multiplier')}", flush=True)
 
     # Fetch all standard sector ETF flows upfront
     print("  Fetching sector ETF flows...", flush=True)
@@ -768,7 +871,7 @@ def run_shortlist():
 
     # ── Phase 1: Score and rank all tickers ───────────────────────────────────
     print("\n  Sending to Claude Sonnet for scoring...", flush=True)
-    result = call_claude_scoring(enriched, vix, sector_flows_by_ticker)
+    result = call_claude_scoring(enriched, regime, sector_flows_by_ticker)
 
     top10 = result.get("top10", [])
 
@@ -813,9 +916,43 @@ def run_shortlist():
     # Add metadata
     result["screener_timestamp"] = data.get("timestamp")
     result["generated_at"] = datetime.now(timezone.utc).isoformat()
+    result["market_regime"] = regime
 
     SHORTLIST_JSON.write_text(json.dumps(result, indent=2))
     print(f"\n  Saved: {SHORTLIST_JSON}", flush=True)
+
+    # ── Picks log: append top10 for outcome tracking ──────────────────────────
+    if top10:
+        picks_log_path = SHORTLIST_JSON.parent / "picks_log.json"
+        try:
+            existing_log = json.loads(picks_log_path.read_text()) if picks_log_path.exists() else []
+        except Exception:
+            existing_log = []
+
+        run_entry = {
+            "run_id": result["generated_at"],
+            "regime_label": regime.get("regime_label"),
+            "picks": [
+                {
+                    "ticker":     p["ticker"],
+                    "rank":       p["rank"],
+                    "score":      p["score"],
+                    "setup_type": p.get("setup_type"),
+                    "price_at_pick": None,  # populated by outcome_tracker.py
+                    "outcomes": {},          # {5d: ..., 10d: ..., 20d: ...}
+                }
+                for p in top10
+            ],
+        }
+
+        # Fetch prices at pick time
+        price_map = {d["ticker"]: (d.get("price_live") or d.get("price_screener")) for d in enriched}
+        for p in run_entry["picks"]:
+            p["price_at_pick"] = price_map.get(p["ticker"])
+
+        existing_log.append(run_entry)
+        picks_log_path.write_text(json.dumps(existing_log, indent=2))
+        print(f"  Appended to picks log: {picks_log_path}", flush=True)
 
     if top10:
         print(f"\n  Top 3 picks:", flush=True)
