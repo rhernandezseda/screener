@@ -194,7 +194,7 @@ class Handler(BaseHTTPRequestHandler):
         if not safe.startswith("data/"):
             self._json(403, {"error": "forbidden"})
             return
-        if not (safe.endswith(".json") or safe.endswith(".html")):
+        if not (safe.endswith(".json") or safe.endswith(".html") or safe.endswith(".txt")):
             self._json(403, {"error": "forbidden"})
             return
         file_path = OUTPUT_DIR / safe
@@ -202,7 +202,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(404, {"error": "not found"})
             return
         ext = file_path.suffix.lower()
-        mime = "application/json" if ext == ".json" else "text/html"
+        mime = "application/json" if ext == ".json" else "text/plain" if ext == ".txt" else "text/html"
         body = file_path.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", mime)

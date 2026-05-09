@@ -966,4 +966,15 @@ def run_shortlist():
 
 
 if __name__ == "__main__":
-    run_shortlist()
+    import traceback
+    try:
+        run_shortlist()
+    except Exception:
+        traceback.print_exc()
+        # Write error to a file so it can be retrieved via /data/
+        try:
+            err_path = DATA_DIR / "shortlist_error.txt"
+            err_path.write_text(traceback.format_exc())
+        except Exception:
+            pass
+        sys.exit(1)
