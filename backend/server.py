@@ -120,6 +120,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_analyze(ticker, force=True)
         elif parsed.path == "/run-screener":
             self._handle_run_screener()
+        elif parsed.path == "/run-shortlist":
+            self._handle_run_shortlist()
         elif parsed.path == "/status":
             self._handle_status(ticker)
         elif parsed.path == "/screener-status":
@@ -257,6 +259,16 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"status": "already_running"})
             return
         run_screener()
+        self._json(200, {"status": "started"})
+
+    def _handle_run_shortlist(self):
+        if _shortlist_proc is not None and _shortlist_proc.poll() is None:
+            self._json(200, {"status": "already_running"})
+            return
+        if not (DATA_DIR / "screener.json").exists():
+            self._json(400, {"error": "screener.json not found — run screener first"})
+            return
+        run_shortlist()
         self._json(200, {"status": "started"})
 
     def _handle_status(self, ticker):

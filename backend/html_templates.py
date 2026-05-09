@@ -650,6 +650,7 @@ def render_screener(stocks, timestamp):
     <option value="ticker">Ticker A–Z</option>
   </select>
   <button class="btn-refresh" id="btnRefresh" onclick="refreshScreener()">↺ Refresh Screener</button>
+  <button class="btn-refresh" id="btnAgent" onclick="runAgent()" style="margin-left:8px;">&#x25B6; Run Agent</button>
   <span class="toolbar-count" id="toolbarCount">Showing {count} of {count}</span>
 </div>
 
@@ -693,6 +694,35 @@ function pollScreener() {{
       }})
       .catch(() => clearInterval(interval));
   }}, 3000);
+}}
+
+function runAgent() {{
+  const btn = document.getElementById('btnAgent');
+  if (btn) {{ btn.disabled = true; btn.textContent = '⏳ Agent running…'; }}
+  fetch(`${{SERVER}}/run-shortlist`)
+    .then(r => r.json())
+    .then(() => pollAgent())
+    .catch(() => {{
+      if (btn) {{ btn.disabled = false; btn.textContent = '▶ Run Agent'; }}
+      alert('Server not reachable — make sure start.py is running.');
+    }});
+}}
+
+function pollAgent() {{
+  const btn = document.getElementById('btnAgent');
+  const interval = setInterval(() => {{
+    fetch(`${{SERVER}}/shortlist-status`)
+      .then(r => r.json())
+      .then(data => {{
+        if (!data.running) {{
+          clearInterval(interval);
+          if (btn) {{ btn.disabled = false; btn.textContent = '▶ Run Agent'; }}
+          // Reload the top-picks section without full page reload
+          loadTopPicks();
+        }}
+      }})
+      .catch(() => clearInterval(interval));
+  }}, 4000);
 }}
 
 function parsePct(s) {{
