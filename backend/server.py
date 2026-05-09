@@ -20,7 +20,8 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
-from config import REFRESH_INTERVAL_HOURS, REFRESH_DAY_OF_WEEK
+from zoneinfo import ZoneInfo
+from config import REFRESH_INTERVAL_HOURS, REFRESH_DAY_OF_WEEK, SHORTLIST_DAYS, SHORTLIST_LOCAL_TIME, SHORTLIST_TIMEZONE
 
 PORT = int(os.environ.get("PORT", 8765))
 ROOT = Path(__file__).parent
@@ -100,6 +101,31 @@ def screener_scheduler():
                 last_run_week = week
                 print(f"  [scheduler] Weekly refresh triggered ({day_names[REFRESH_DAY_OF_WEEK]}).", flush=True)
                 run_screener()
+
+
+def shortlist_scheduler():
+    """Run the shortlist agent at SHORTLIST_LOCAL_TIME on SHORTLIST_DAYS (Madrid time).
+    Also fires once at startup."""
+    tz = ZoneInfo(SHORTLIST_TIMEZONE)
+    hour, minute = SHORTLIST_LOCAL_TIME
+    day_names = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+    scheduled_days = ", ".join(day_names[d] for d in sorted(SHORTLIST_DAYS))
+    print(f"  [shortlist-scheduler] Will run at {hour:02d}:{minute:02d} {SHORTLIST_TIMEZONE} on: {scheduled_days}", flush=True)
+    print(f"  [shortlist-scheduler] Running initial shortlist on startup...", flush=True)
+    run_shortlist()
+
+    last_run_date = None
+    while True:
+        time.sleep(60)  # check every minute
+        now_local = datetime.now(tz)
+        if (now_local.weekday() in SHORTLIST_DAYS
+                and now_local.hour == hour
+                and now_local.minute == minute):
+            today = now_local.date()
+            if today != last_run_date:
+                last_run_date = today
+                print(f"  [shortlist-scheduler] Scheduled run triggered ({day_names[now_local.weekday()]} {hour:02d}:{minute:02d}).", flush=True)
+                run_shortlist()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -304,6 +330,8 @@ class Handler(BaseHTTPRequestHandler):
 def run():
     t = threading.Thread(target=screener_scheduler, daemon=True)
     t.start()
+    ts = threading.Thread(target=shortlist_scheduler, daemon=True)
+    ts.start()
     server = HTTPServer(("0.0.0.0", PORT), Handler)
     server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     print(f"  [server] Listening on port {PORT}")

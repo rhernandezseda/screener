@@ -39,3 +39,10 @@ DISPLAY_COLUMNS = [
 # Day of week to run the screener (0=Monday … 6=Sunday). Set to -1 to disable.
 REFRESH_DAY_OF_WEEK = 6   # Sunday
 REFRESH_INTERVAL_HOURS = 0  # legacy — unused when REFRESH_DAY_OF_WEEK >= 0
+
+# ── Shortlist agent schedule ───────────────────────────────────────────────────
+# Days (0=Mon … 6=Sun) on which the agent runs at SHORTLIST_LOCAL_TIME.
+# Also runs once on server startup.
+SHORTLIST_DAYS = {0, 1, 2, 3, 5}  # Mon, Tue, Wed, Thu, Sat
+SHORTLIST_LOCAL_TIME = (21, 30)    # 9:30 PM local
+SHORTLIST_TIMEZONE = "Europe/Madrid"

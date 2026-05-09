@@ -456,11 +456,22 @@ def render_screener(stocks, timestamp):
   .rank-badge.gold   {{ background: rgba(245,158,11,0.15); color: #f59e0b; }}
   .rank-badge.silver {{ background: rgba(156,163,175,0.15); color: #9ca3af; }}
   .rank-badge.bronze {{ background: rgba(180,83,9,0.15);   color: #b45309; }}
+  .pick-ticker-wrap {{
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }}
   .pick-ticker {{
     font-size: 15px;
     font-weight: 600;
     color: var(--text);
     letter-spacing: -0.3px;
+  }}
+  .pick-industry {{
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
   }}
   .pick-header-right {{
     margin-left: auto;
@@ -541,17 +552,21 @@ def render_screener(stocks, timestamp):
     gap: 4px;
     flex-wrap: wrap;
     padding: 6px 14px 10px;
+    align-items: center;
   }}
   .pattern-tag {{
-    display: inline-block;
-    padding: 2px 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
     border-radius: 3px;
     font-size: 10px;
     font-weight: 500;
     white-space: nowrap;
   }}
-  .pattern-tag.bullish {{ background: rgba(34,197,94,0.12); color: var(--gain); }}
-  .pattern-tag.bearish {{ background: rgba(239,68,68,0.12); color: var(--loss); }}
+  .pattern-tag.bullish {{ background: rgba(34,197,94,0.12); color: var(--gain); border: 1px solid rgba(34,197,94,0.25); }}
+  .pattern-tag.bearish {{ background: rgba(239,68,68,0.12); color: var(--loss); border: 1px solid rgba(239,68,68,0.25); }}
+  .pattern-tag.candle  {{ background: rgba(99,102,241,0.10); color: #a5b4fc;    border: 1px solid rgba(99,102,241,0.25); }}
   .pick-ta-notes {{
     font-size: 10px;
     color: var(--dim);
@@ -650,7 +665,6 @@ def render_screener(stocks, timestamp):
     <option value="ticker">Ticker A–Z</option>
   </select>
   <button class="btn-refresh" id="btnRefresh" onclick="refreshScreener()">↺ Refresh Screener</button>
-  <button class="btn-refresh" id="btnAgent" onclick="runAgent()" style="margin-left:8px;">&#x25B6; Run Agent</button>
   <span class="toolbar-count" id="toolbarCount">Showing {count} of {count}</span>
 </div>
 
@@ -696,34 +710,6 @@ function pollScreener() {{
   }}, 3000);
 }}
 
-function runAgent() {{
-  const btn = document.getElementById('btnAgent');
-  if (btn) {{ btn.disabled = true; btn.textContent = '⏳ Agent running…'; }}
-  fetch(`${{SERVER}}/run-shortlist`)
-    .then(r => r.json())
-    .then(() => pollAgent())
-    .catch(() => {{
-      if (btn) {{ btn.disabled = false; btn.textContent = '▶ Run Agent'; }}
-      alert('Server not reachable — make sure start.py is running.');
-    }});
-}}
-
-function pollAgent() {{
-  const btn = document.getElementById('btnAgent');
-  const interval = setInterval(() => {{
-    fetch(`${{SERVER}}/shortlist-status`)
-      .then(r => r.json())
-      .then(data => {{
-        if (!data.running) {{
-          clearInterval(interval);
-          if (btn) {{ btn.disabled = false; btn.textContent = '▶ Run Agent'; }}
-          // Reload the top-picks section without full page reload
-          loadTopPicks();
-        }}
-      }})
-      .catch(() => clearInterval(interval));
-  }}, 4000);
-}}
 
 function parsePct(s) {{
   if (!s || s === 'N/A') return -999;
@@ -879,7 +865,15 @@ function renderTopPicks(data) {{
     content.innerHTML = '<div class="top-picks-loading">Agent has not run yet — will run after next screener refresh.</div>';
     return;
   }}
-  const ts = data.generated_at ? new Date(data.generated_at).toLocaleString('en-US', {{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}}) : '';
+  function timeAgo(isoStr) {{
+    if (!isoStr) return '';
+    const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+    if (diff < 60)   return 'just now';
+    if (diff < 3600) return `${{Math.floor(diff / 60)}}m ago`;
+    if (diff < 86400) return `${{Math.floor(diff / 3600)}}h ago`;
+    return `${{Math.floor(diff / 86400)}}d ago`;
+  }}
+  const ts = timeAgo(data.generated_at);
   const vix = data.vix ? ` · VIX ${{data.vix}}` : '';
   meta.textContent = `${{ts}}${{vix}} · ${{data.top10.length}} picks`;
 
@@ -899,17 +893,23 @@ function renderTopPicks(data) {{
     const bullish = p.chart_bullish && p.chart_bullish !== 'none' ? p.chart_bullish : null;
     const bearish = p.chart_bearish && p.chart_bearish !== 'none' ? p.chart_bearish : null;
     const notes = p.ta_chart_notes && p.ta_chart_notes.trim() ? p.ta_chart_notes.trim() : null;
-    const patternHtml = (bullish || bearish || notes) ? `
+    const candleBulls = (p.candle_bullish || []).map(c => `<span class="pattern-tag candle">&#9670; ${{c}}</span>`).join('');
+    const candleBears = (p.candle_bearish || []).map(c => `<span class="pattern-tag candle" style="color:var(--loss);border-color:rgba(239,68,68,0.25)">&#9670; ${{c}}</span>`).join('');
+    const patternHtml = (bullish || bearish || notes || candleBulls || candleBears) ? `
       <div class="pick-pattern">
         ${{bullish ? `<span class="pattern-tag bullish">&#8679; ${{bullish}}</span>` : ''}}
         ${{bearish ? `<span class="pattern-tag bearish">&#8681; ${{bearish}}</span>` : ''}}
+        ${{candleBulls}}${{candleBears}}
         ${{notes ? `<span class="pick-ta-notes">${{notes}}</span>` : ''}}
       </div>` : '';
 
     return `<div class="pick-card" onclick="handleCardClick('${{p.ticker}}')">
       <div class="pick-card-header">
         <span class="rank-badge ${{rankClass(p.rank)}}">${{p.rank}}</span>
-        <span class="pick-ticker">${{p.ticker}}</span>
+        <div class="pick-ticker-wrap">
+          <span class="pick-ticker">${{p.ticker}}</span>
+          ${{(p.sector || p.industry) ? `<span class="pick-industry">${{[p.sector, p.industry].filter(Boolean).join(' › ')}}</span>` : ''}}
+        </div>
         <div class="pick-header-right">
           <div class="score-bar">
             <span class="score-num">${{p.score}}</span>

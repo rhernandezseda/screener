@@ -255,6 +255,8 @@ def fetch_ticker_data(screener_row: dict) -> dict:
             "bid_ask_spread_pct": spread_pct,
             "beta":              info.get("beta"),
             "forward_pe":        info.get("forwardPE"),
+            "industry":          info.get("industry"),
+            "sector":            info.get("sector"),
             "hist_5d":           hist5,
             "ta_indicators":     compute_ta_indicators_from_history(ticker),
         })
@@ -907,11 +909,17 @@ def run_shortlist():
 
     top10 = result.get("top10", [])
 
-    # Carry exchange field into top10 entries (needed for chart-img symbol prefix)
+    # Carry exchange + talib candle patterns into top10 entries
+    enriched_map = {d["ticker"]: d for d in enriched}
     exchange_map = {d["ticker"]: d.get("exchange", "") for d in enriched}
     for pick in top10:
         if not pick.get("exchange"):
             pick["exchange"] = exchange_map.get(pick["ticker"], "")
+        ta = (enriched_map.get(pick["ticker"]) or {}).get("ta_indicators") or {}
+        pick["candle_bullish"] = ta.get("candle_patterns_bullish") or []
+        pick["candle_bearish"] = ta.get("candle_patterns_bearish") or []
+        pick["industry"] = (enriched_map.get(pick["ticker"]) or {}).get("industry") or ""
+        pick["sector"] = (enriched_map.get(pick["ticker"]) or {}).get("sector") or ""
 
     # ── Phase 2: Fetch charts and run pattern analysis on top 10 only ─────────
     if top10:
