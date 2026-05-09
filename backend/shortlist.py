@@ -697,20 +697,40 @@ def call_claude_scoring(enriched: list, regime: dict, sector_flows: dict) -> dic
                 return float(obj)
             return super().default(obj)
 
+    # Slim ta_indicators to key scalars + a compact candle summary string
+    # to avoid blowing Claude's context window with 150+ tickers of raw data.
+    for t in tickers_payload:
+        ta = t.get("ta_indicators") or {}
+        bulls = ta.get("candle_patterns_bullish") or []
+        bears = ta.get("candle_patterns_bearish") or []
+        t["ta_indicators"] = {
+            "rsi_14":        ta.get("rsi_14"),
+            "macd_bullish":  ta.get("macd_bullish"),
+            "macd_crossover":ta.get("macd_crossover"),
+            "bb_squeeze":    ta.get("bb_squeeze"),
+            "atr_pct":       ta.get("atr_pct"),
+            "candles":       ("/".join(bulls) if bulls else "") + ("|" + "/".join(bears) if bears else ""),
+        }
+
     user_msg = json.dumps({
         "market_regime": regime,
         "vix": regime.get("vix"),
         "ticker_count": len(tickers_payload),
         "tickers": tickers_payload,
-    }, indent=2, cls=_NumpySafe)
+    }, separators=(",", ":"), cls=_NumpySafe)
 
-    print(f"  Calling Claude Sonnet for scoring ({len(tickers_payload)} tickers)...", flush=True)
-    response = client.messages.create(
-        model="claude-sonnet-4-5",
-        max_tokens=4096,
-        system=SCORING_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_msg}],
-    )
+    print(f"  Calling Claude Sonnet for scoring ({len(tickers_payload)} tickers, {len(user_msg):,} chars)...", flush=True)
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=4096,
+            system=SCORING_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_msg}],
+        )
+    except Exception as e:
+        status = getattr(e, "status_code", None)
+        print(f"  [shortlist] Claude API error (status={status}): {e}", flush=True)
+        raise
 
     raw = response.content[0].text.strip()
     if raw.startswith("```"):
