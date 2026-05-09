@@ -312,7 +312,7 @@ def compute_ta_indicators_from_history(ticker: str) -> dict:
         if not np.isnan(hist_macd[-1]):
             result["macd_hist"] = round(float(hist_macd[-1]), 4)
             result["macd_bullish"] = bool(hist_macd[-1] > 0)
-            result["macd_crossover"] = (
+            result["macd_crossover"] = bool(
                 not np.isnan(hist_macd[-2]) and
                 ((hist_macd[-2] < 0 and hist_macd[-1] > 0) or
                  (hist_macd[-2] > 0 and hist_macd[-1] < 0))
@@ -685,12 +685,24 @@ def call_claude_scoring(enriched: list, regime: dict, sector_flows: dict) -> dic
             "next_earnings_date":  d.get("next_earnings_date"),
         })
 
+    import numpy as _np
+
+    class _NumpySafe(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, _np.bool_):
+                return bool(obj)
+            if isinstance(obj, _np.integer):
+                return int(obj)
+            if isinstance(obj, _np.floating):
+                return float(obj)
+            return super().default(obj)
+
     user_msg = json.dumps({
         "market_regime": regime,
         "vix": regime.get("vix"),
         "ticker_count": len(tickers_payload),
         "tickers": tickers_payload,
-    }, indent=2)
+    }, indent=2, cls=_NumpySafe)
 
     print(f"  Calling Claude Sonnet for scoring ({len(tickers_payload)} tickers)...", flush=True)
     response = client.messages.create(
