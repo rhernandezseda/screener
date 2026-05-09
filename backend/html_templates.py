@@ -409,6 +409,7 @@ def render_screener(stocks, timestamp):
   }}
   .btn-toggle.off:hover {{ border-color: var(--muted); color: var(--muted); }}
 
+  /* AGENT_SECTION_START (hidden — delete through AGENT_SECTION_END to remove permanently) */
   /* ── TOP PICKS ── */
   .top-picks {{
     position: relative;
@@ -655,6 +656,7 @@ def render_screener(stocks, timestamp):
     .pick-stats {{ grid-template-columns: repeat(2, 1fr); }}
     .pick-stat:nth-child(2) {{ border-right: none; }}
   }}
+  /* AGENT_SECTION_END */
 
   @media (max-width: 640px) {{
     .hero {{ padding: 28px 16px; }}
@@ -683,8 +685,8 @@ def render_screener(stocks, timestamp):
   </div>
 </header>
 
-<!-- TOP PICKS -->
-<section class="top-picks" id="topPicksSection">
+<!-- AGENT_SECTION_START (hidden — delete this block and everything tagged AGENT_SECTION to remove permanently) -->
+<section class="top-picks" id="topPicksSection" style="display:none">
   <div class="top-picks-header" onclick="toggleTopPicks()">
     <h2>&#9889; Agent Top Picks</h2>
     <span class="top-picks-meta" id="topPicksMeta">Loading…</span>
@@ -692,6 +694,7 @@ def render_screener(stocks, timestamp):
   </div>
   <div id="topPicksContent"><div class="top-picks-loading">Fetching shortlist…</div></div>
 </section>
+<!-- AGENT_SECTION_END -->
 
 <!-- TOOLBAR -->
 <div class="toolbar">
@@ -964,6 +967,7 @@ function setupTagClass(type) {{
   return 'momentum-only';
 }}
 
+// AGENT_SECTION_START (hidden — delete through AGENT_SECTION_END to remove permanently)
 function renderTopPicks(data) {{
   const meta = document.getElementById('topPicksMeta');
   const content = document.getElementById('topPicksContent');
@@ -1097,9 +1101,10 @@ function loadTopPicks() {{
     }});
 }}
 
+// AGENT_SECTION_END
+
 // Init
 filterAndSort();
-loadTopPicks();
 </script>
 </div>
 </body>
