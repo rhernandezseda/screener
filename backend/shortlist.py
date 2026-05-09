@@ -25,7 +25,14 @@ warnings.filterwarnings("ignore")
 
 import anthropic
 import httpx
+import numpy as np
 import yfinance as yf
+
+try:
+    import talib
+    _TALIB_AVAILABLE = True
+except ImportError:
+    _TALIB_AVAILABLE = False
 
 OUTPUT_DIR = Path(__file__).parent.parent / "output"
 DATA_DIR = OUTPUT_DIR / "data"
@@ -179,6 +186,7 @@ def fetch_ticker_data(screener_row: dict) -> dict:
             "beta":              info.get("beta"),
             "forward_pe":        info.get("forwardPE"),
             "hist_5d":           hist5,
+            "ta_indicators":     compute_ta_indicators_from_history(ticker),
         })
 
     except Exception as e:
@@ -187,8 +195,104 @@ def fetch_ticker_data(screener_row: dict) -> dict:
     return base
 
 
+def compute_ta_indicators_from_history(ticker: str) -> dict:
+    """
+    Fetch 60-day OHLCV history and compute TA indicators.
+    Returns a dict of indicator values, or empty dict if talib unavailable.
+    """
+    if not _TALIB_AVAILABLE:
+        return {}
+    try:
+        hist = yf.Ticker(ticker).history(period="60d", interval="1d")
+        if len(hist) < 20:
+            return {}
+
+        o = hist["Open"].values.astype(float)
+        h = hist["High"].values.astype(float)
+        lo = hist["Low"].values.astype(float)
+        c = hist["Close"].values.astype(float)
+
+        result = {}
+
+        # RSI(14)
+        rsi = talib.RSI(c, timeperiod=14)
+        result["rsi_14"] = round(float(rsi[-1]), 1) if not np.isnan(rsi[-1]) else None
+
+        # MACD(12,26,9)
+        macd, signal, hist_macd = talib.MACD(c, fastperiod=12, slowperiod=26, signalperiod=9)
+        if not np.isnan(hist_macd[-1]):
+            result["macd_hist"] = round(float(hist_macd[-1]), 4)
+            result["macd_bullish"] = bool(hist_macd[-1] > 0)
+            result["macd_crossover"] = (
+                not np.isnan(hist_macd[-2]) and
+                ((hist_macd[-2] < 0 and hist_macd[-1] > 0) or
+                 (hist_macd[-2] > 0 and hist_macd[-1] < 0))
+            )
+        else:
+            result["macd_hist"] = None
+            result["macd_bullish"] = None
+            result["macd_crossover"] = None
+
+        # Bollinger Band squeeze
+        upper, middle, lower = talib.BBANDS(c, timeperiod=20)
+        if not np.isnan(upper[-1]) and middle[-1] > 0:
+            bb_width = round(float((upper[-1] - lower[-1]) / middle[-1] * 100), 2)
+            result["bb_width_pct"] = bb_width
+            widths = (upper - lower) / middle * 100
+            valid_widths = widths[~np.isnan(widths)]
+            if len(valid_widths) >= 10:
+                result["bb_squeeze"] = bool(bb_width <= float(np.percentile(valid_widths, 20)))
+            else:
+                result["bb_squeeze"] = None
+        else:
+            result["bb_width_pct"] = None
+            result["bb_squeeze"] = None
+
+        # ATR(14) as % of close
+        atr = talib.ATR(h, lo, c, timeperiod=14)
+        if not np.isnan(atr[-1]) and c[-1] > 0:
+            result["atr_pct"] = round(float(atr[-1] / c[-1] * 100), 2)
+        else:
+            result["atr_pct"] = None
+
+        # Candlestick patterns (last candle)
+        patterns_bullish = []
+        patterns_bearish = []
+        candle_checks = [
+            ("Hammer",         talib.CDLHAMMER,          "bullish"),
+            ("Inv Hammer",     talib.CDLINVERTEDHAMMER,   "bullish"),
+            ("Engulfing",      talib.CDLENGULFING,        None),
+            ("Morning Star",   talib.CDLMORNINGSTAR,      "bullish"),
+            ("Evening Star",   talib.CDLEVENINGSTAR,      "bearish"),
+            ("Doji",           talib.CDLDOJI,             None),
+            ("Harami",         talib.CDLHARAMI,           None),
+            ("Shooting Star",  talib.CDLSHOOTINGSTAR,     "bearish"),
+            ("3 White Soldiers",talib.CDL3WHITESOLDIERS,  "bullish"),
+            ("3 Black Crows",  talib.CDL3BLACKCROWS,      "bearish"),
+        ]
+        for label, fn, direction in candle_checks:
+            try:
+                val = int(fn(o, h, lo, c)[-1])
+                if val == 0:
+                    continue
+                d = direction if direction else ("bullish" if val > 0 else "bearish")
+                if d == "bullish":
+                    patterns_bullish.append(label)
+                else:
+                    patterns_bearish.append(label)
+            except Exception:
+                continue
+
+        result["candle_patterns_bullish"] = patterns_bullish
+        result["candle_patterns_bearish"] = patterns_bearish
+
+        return result
+
+    except Exception as e:
+        return {"ta_error": str(e)}
+
+
 def fetch_all_tickers(stocks: list) -> list:
-    """Fetch yfinance data for all tickers concurrently."""
     results = [None] * len(stocks)
 
     def worker(i, row):
@@ -271,6 +375,23 @@ SCORING_SYSTEM_PROMPT = """You are a momentum trading research agent specializin
 Your job is to evaluate a list of screened companies and rank them by their quality as SHORT-TERM
 trading opportunities — meaning setups that are actionable TODAY, not next week or next quarter.
 
+Each ticker includes a `ta_indicators` object with pre-computed technical signals:
+- `rsi_14`: RSI(14). Overbought >70, oversold <30. Best breakout zone: 55–70 (momentum, not extended).
+- `macd_bullish`: true if MACD histogram is positive (bullish momentum).
+- `macd_crossover`: true if histogram crossed zero in the last bar (fresh signal — high weight).
+- `bb_squeeze`: true if Bollinger Bands are in their tightest 20% of recent range (coiled spring).
+- `bb_width_pct`: absolute BB width as % of price. Lower = tighter.
+- `atr_pct`: ATR(14) as % of price. Use to assess volatility risk.
+- `candle_patterns_bullish`: list of bullish candlestick patterns on latest candle (e.g. ["Hammer", "Engulfing"]).
+- `candle_patterns_bearish`: list of bearish candlestick patterns on latest candle.
+
+Use these to improve scoring precision:
+- A bb_squeeze=true + volume_ratio>1.5 is a very high-conviction breakout setup — weight heavily.
+- macd_crossover=true adds +5 bonus points to breakout score (fresh momentum confirmation).
+- rsi_14 > 75 signals extension risk — upgrade risk_flag to at least Medium.
+- Bearish candle patterns should upgrade risk_flag by one level.
+- Bullish candle patterns (especially Engulfing or 3 White Soldiers) add +3 to breakout score.
+
 ## SCORING MODEL (100 points total)
 
 ### A. Breakout readiness (max 40 points)
@@ -283,6 +404,8 @@ trading opportunities — meaning setups that are actionable TODAY, not next wee
 | volume_expanding = true (each of last 3 days > prior) | +8 |
 | range_position_pct > 75 (close in top 25% of day's range) | +5 |
 | price above VWAP (use range_position_pct > 50 as proxy) | +3 |
+| macd_crossover = true (bonus) | +5 |
+| bullish candle pattern present (bonus) | +3 |
 
 ### B. Squeeze potential (max 30 points)
 | Signal | Points |
@@ -291,6 +414,7 @@ trading opportunities — meaning setups that are actionable TODAY, not next wee
 | short_pct_float 10–20% | +8 |
 | days_to_cover > 5 | +10 |
 | float_shares < 20,000,000 | +5 |
+| bb_squeeze = true (bonus: coiled setup) | +5 |
 
 ### C. Momentum quality (max 20 points)
 | Signal | Points |
@@ -306,6 +430,8 @@ trading opportunities — meaning setups that are actionable TODAY, not next wee
 | bid_ask_spread_pct > 0.5% | −4 |
 | VIX > 25 | −3 |
 | change_pct_today < −5% | −5 |
+| rsi_14 > 75 (extended, overheated) | −3 |
+| bearish candle pattern present | −3 |
 
 ## AUTO-DISQUALIFICATION (remove entirely before scoring)
 - avg_volume_20d < 500,000
@@ -316,24 +442,25 @@ trading opportunities — meaning setups that are actionable TODAY, not next wee
 ## IMPORTANT RULES
 - Use ONLY the data provided. Do not invent or assume any value not present.
 - If a field is null/missing, score that signal as 0 and note it.
+- If ta_indicators is empty or missing, score TA signals as 0.
 - Be skeptical: if confidence in a data point is low, upgrade risk flag to Medium.
 - Do not recommend — you surface setups, the human decides.
 - When in doubt on disqualification, disqualify.
 
 ## OUTPUT
 Return a single valid JSON object with this exact structure:
-{
+{{
   "generated_at": "<ISO timestamp>",
   "vix": <number or null>,
   "top10": [
-    {
+    {{
       "rank": 1,
       "ticker": "...",
       "exchange": "...",
       "score": <0-100>,
       "setup_type": "Breakout + squeeze | Breakout only | Squeeze only | Momentum only",
-      "breakout_pts": <0-40>,
-      "squeeze_pts": <0-30>,
+      "breakout_pts": <0-45>,
+      "squeeze_pts": <0-35>,
       "momentum_pts": <0-20>,
       "risk_pts": <0-10>,
       "si_pct": <number or null>,
@@ -342,18 +469,33 @@ Return a single valid JSON object with this exact structure:
       "volume_ratio": <number or null>,
       "change_pct_today": <number or null>,
       "risk_flag": "Low | Medium | High",
-      "thesis": "<1-2 sentence thesis using specific data points>"
-    }
+      "thesis": "<1-2 sentence thesis using specific data points including any TA signals>"
+    }}
   ],
-  "top_pick_rationale": "<3-5 sentences on #1 pick with specific data. State what would invalidate the thesis.>",
+  "top_pick_rationale": "<3-5 sentences on #1 pick with specific data including TA context. State what would invalidate the thesis.>",
   "disqualified": ["TICK1", "TICK2"],
-  "notes": "<any caveats about missing data or low-confidence signals>"
-}"""
+  "notes": "<any caveats about missing data, low-confidence signals, or TA library status>"
+}}"""
 
 
-PATTERN_SYSTEM_PROMPT = """You are a technical analysis pattern recognition specialist.
-You will be shown candlestick chart images for a set of stocks and must identify whether any
-classic chart patterns are clearly present.
+PATTERN_SYSTEM_PROMPT = """You are a technical analysis specialist combining chart image analysis with pre-computed indicator data.
+
+For each stock you will receive:
+1. A candlestick chart image (60-day daily)
+2. Pre-computed TA indicators: RSI, MACD, Bollinger Band squeeze status, ATR, and candlestick patterns detected algorithmically
+
+Your job is to give a COMBINED assessment — use the image to validate and enrich what the indicators say.
+The indicators anchor your analysis; the image reveals visual context indicators cannot capture:
+trend line quality, support/resistance confluence, volume profile shape, and whether a setup looks
+clean or messy.
+
+## HOW TO COMBINE IMAGE + INDICATORS
+
+- If `bb_squeeze=true` AND the chart shows a tight sideways consolidation with visible volume decline → strong squeeze confirmation, high confidence.
+- If `macd_crossover=true` AND the chart shows a fresh move off support → flag as "Triggered" rather than "Formed".
+- If `candle_patterns_bullish` lists a pattern AND you see it clearly in the image → confirm it; otherwise ignore the indicator.
+- If the chart looks bearish/choppy but indicators are bullish → note the discrepancy in your assessment and downgrade confidence.
+- The chart image overrules indicator data when there is a clear conflict — indicators can lag, images do not lie.
 
 ## CORE PRINCIPLE: DEFAULT TO "NONE"
 You are looking for unambiguous, textbook-quality patterns ONLY. Your strong default is "none".
@@ -364,78 +506,42 @@ It is far better to miss a pattern than to report a false positive.
 
 ## BULLISH PATTERNS — report only if ALL criteria are met
 
-**Cup & handle**
-- Smooth rounded U-shape spanning at least 4 weeks
-- Handle drifts down no more than 50% of cup depth, lasts 1 week to 1/3 of cup length
-- Volume visibly dries up through base and handle
-- Do NOT report if cup is V-shaped or jagged
-
-**Bull flag**
-- Clear near-vertical surge of at least 10% forming the flagpole
-- Tight parallel consolidation drifting slightly downward
-- Flag no longer than 3 weeks; volume visibly lower during flag
-- Do NOT report if consolidation is wide, choppy, or drifts upward
-
-**Ascending triangle**
-- Flat resistance ceiling tested at least 3 times
-- At least 3 higher lows converging toward that ceiling
-- Pattern spans at least 3 weeks
-- Do NOT report if resistance is sloping or inconsistent
-
-**Double bottom**
-- Two distinct troughs within 2% of each other, separated by a visible peak
-- Pattern spans at least 3 weeks
-- Do NOT report if lows are more than 3% apart
-
-**Volatility contraction (VCP)**
-- At least 3 clearly visible contractions, each smaller than the last
-- Volume visibly declines with each contraction
-- Do NOT report if fewer than 3 contractions are visible
+**Cup & handle** — Smooth rounded U-shape ≥4 weeks; handle drifts ≤50% of cup depth; volume dries up through base and handle.
+**Bull flag** — Near-vertical surge ≥10% forming flagpole; tight parallel consolidation drifting slightly downward ≤3 weeks; volume lower during flag.
+**Ascending triangle** — Flat resistance tested ≥3 times; ≥3 higher lows converging toward ceiling; ≥3 weeks.
+**Double bottom** — Two distinct troughs within 2% of each other separated by a visible peak; ≥3 weeks.
+**Volatility contraction (VCP)** — ≥3 clearly visible contractions, each smaller; volume visibly declining.
 
 ## BEARISH PATTERNS — report only if ALL criteria are met
 
-**Head & shoulders**
-- Three peaks — center visibly higher than both shoulders; shoulders within 3% of each other
-- Clearly identifiable neckline; pattern spans at least 4 weeks
-- Do NOT report if shoulders are significantly asymmetric
+**Head & shoulders** — Three peaks with center visibly higher; shoulders within 3%; clear neckline; ≥4 weeks.
+**Bear flag** — Near-vertical drop ≥10%; tight upward consolidation; volume lower during flag.
+**Descending triangle** — Flat support tested ≥3 times; ≥3 lower highs converging; ≥3 weeks.
+**Double top** — Two peaks within 2% of each other separated by visible trough; ≥3 weeks.
+**Rising wedge** — Two converging upward trendlines each touched ≥3 times; volume declining; ≥3 weeks.
 
-**Bear flag**
-- Clear near-vertical drop of at least 10% forming the flagpole
-- Tight upward-drifting parallel consolidation; volume lower during flag
-- Do NOT report if consolidation is wide or choppy
-
-**Descending triangle**
-- Flat support floor tested at least 3 times; at least 3 lower highs converging toward floor
-- Pattern spans at least 3 weeks
-
-**Double top**
-- Two distinct peaks within 2% of each other, separated by a visible trough
-- Pattern spans at least 3 weeks
-
-**Rising wedge**
-- Rising price within two clearly converging upward trendlines, each touched 3+ times
-- Volume visibly declines as price rises; pattern spans at least 3 weeks
-
-## CONFIDENCE LEVELS (only assign if pattern fully qualifies)
+## CONFIDENCE LEVELS
 - `Developing` — structural criteria met but pattern not yet complete
 - `Formed` — complete, awaiting breakout/breakdown confirmation
 - `Triggered` — broken out or broken down with volume confirmation
 
 ## OUTPUT FORMAT
 Return a single valid JSON object:
-{
+{{
   "patterns": [
-    {
+    {{
       "ticker": "...",
       "bullish_pattern": "Cup & handle (Formed)" or "none",
-      "bearish_pattern": "Head & shoulders (Developing)" or "none"
-    }
+      "bearish_pattern": "Head & shoulders (Developing)" or "none",
+      "ta_chart_notes": "<one sentence: did the chart confirm, contradict, or add context to the indicator data? Keep it tight.>"
+    }}
   ]
-}
+}}
 
 One entry per ticker. At most one bullish and one bearish pattern per ticker.
 If multiple partially qualify, report only the strongest and clearest one.
-Never add caveats or qualifications inline — clean pattern name + confidence only."""
+Never add caveats or qualifications inline in pattern fields — clean pattern name + confidence only.
+The ta_chart_notes field is the place for any synthesis."""
 
 
 def call_claude_scoring(enriched: list, vix, sector_flows: dict) -> dict:
@@ -474,6 +580,7 @@ def call_claude_scoring(enriched: list, vix, sector_flows: dict) -> dict:
             "sector_flow_5d_pct":  flow.get("flow_5d_pct"),
             "sector_etf":          flow.get("etf"),
             "fetch_error":         d.get("fetch_error"),
+            "ta_indicators":       d.get("ta_indicators", {}),
         })
 
     user_msg = json.dumps({
@@ -518,9 +625,27 @@ def call_claude_patterns(top10: list, chart_images: dict) -> list:
         ticker = pick["ticker"]
         b64 = chart_images.get(ticker)
         if b64:
+            ta = pick.get("ta_indicators", {})
+            ta_summary = []
+            if ta.get("rsi_14") is not None:
+                ta_summary.append(f"RSI={ta['rsi_14']}")
+            if ta.get("macd_bullish") is not None:
+                ta_summary.append(f"MACD={'bullish' if ta['macd_bullish'] else 'bearish'}")
+            if ta.get("macd_crossover"):
+                ta_summary.append("MACD_crossover=true")
+            if ta.get("bb_squeeze") is not None:
+                ta_summary.append(f"BB_squeeze={'YES' if ta['bb_squeeze'] else 'no'}")
+            if ta.get("bb_width_pct") is not None:
+                ta_summary.append(f"BB_width={ta['bb_width_pct']}%")
+            if ta.get("candle_patterns_bullish"):
+                ta_summary.append(f"Candle_bullish={','.join(ta['candle_patterns_bullish'])}")
+            if ta.get("candle_patterns_bearish"):
+                ta_summary.append(f"Candle_bearish={','.join(ta['candle_patterns_bearish'])}")
+            ta_text = f" | TA: {' | '.join(ta_summary)}" if ta_summary else " | TA: unavailable"
+
             content.append({
                 "type": "text",
-                "text": f"Chart for {ticker} (Rank #{pick['rank']}, {pick.get('exchange', '')}):"
+                "text": f"Chart for {ticker} (Rank #{pick['rank']}, {pick.get('exchange', '')}){ta_text}:"
             })
             content.append({
                 "type": "image",
@@ -539,6 +664,7 @@ def call_claude_patterns(top10: list, chart_images: dict) -> list:
         "text": (
             f"Analyze the {len(tickers_with_images)} charts above for the following tickers in order: "
             f"{', '.join(tickers_with_images)}. "
+            "For each, cross-reference the chart image with the TA indicator summary provided above it. "
             "Apply the strict pattern criteria from your instructions. "
             "Return the JSON output as specified."
         )
@@ -579,7 +705,7 @@ def call_claude_patterns(top10: list, chart_images: dict) -> list:
     found_tickers = {p["ticker"] for p in patterns}
     for ticker in tickers_without_images:
         if ticker not in found_tickers:
-            patterns.append({"ticker": ticker, "bullish_pattern": "none", "bearish_pattern": "none"})
+            patterns.append({"ticker": ticker, "bullish_pattern": "none", "bearish_pattern": "none", "ta_chart_notes": ""})
 
     return patterns
 
@@ -666,6 +792,7 @@ def run_shortlist():
             pm = pattern_map.get(pick["ticker"], {})
             pick["chart_bullish"] = pm.get("bullish_pattern", "none")
             pick["chart_bearish"] = pm.get("bearish_pattern", "none")
+            pick["ta_chart_notes"] = pm.get("ta_chart_notes", "")
 
         # Build the chart pattern review section (ordered by rank)
         chart_pattern_review = []

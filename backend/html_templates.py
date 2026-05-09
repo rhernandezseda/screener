@@ -371,14 +371,14 @@ def render_screener(stocks, timestamp):
   .top-picks {{
     position: relative;
     z-index: 1;
-    padding: 24px 48px 8px;
+    padding: 24px 48px 28px;
     border-bottom: 1px solid var(--surface-border);
   }}
   .top-picks-header {{
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
     cursor: pointer;
     user-select: none;
   }}
@@ -400,53 +400,90 @@ def render_screener(stocks, timestamp):
     font-size: 11px;
     color: var(--dim);
   }}
-  .picks-table {{
-    width: 100%;
-    border-collapse: collapse;
+  /* #1 rationale banner — shown above the card grid */
+  .pick-rationale {{
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 14px 18px;
     font-size: 12px;
-    margin-bottom: 16px;
+    color: var(--muted);
+    line-height: 1.65;
+    margin-bottom: 20px;
   }}
-  .picks-table th {{
-    text-align: left;
-    padding: 6px 10px;
-    color: var(--dim);
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+  .pick-rationale strong {{ color: var(--text); }}
+  /* pick card grid */
+  .picks-grid {{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }}
+  .pick-card {{
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+    display: flex;
+    flex-direction: column;
+  }}
+  .pick-card:hover {{
+    transform: translateY(-2px);
+    border-color: rgba(99,102,241,0.4);
+  }}
+  .pick-card-header {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px 10px;
     border-bottom: 1px solid var(--surface-border);
-    white-space: nowrap;
   }}
-  .picks-table td {{
-    padding: 8px 10px;
-    border-bottom: 1px solid rgba(42,45,58,0.5);
-    vertical-align: middle;
-    white-space: nowrap;
-  }}
-  .picks-table tr:last-child td {{ border-bottom: none; }}
-  .picks-table tr:hover td {{ background: rgba(255,255,255,0.02); cursor: pointer; }}
   .rank-badge {{
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 22px; height: 22px;
+    width: 24px; height: 24px;
     border-radius: 50%;
     background: rgba(99,102,241,0.15);
     color: var(--accent);
     font-weight: 600;
     font-size: 11px;
+    flex-shrink: 0;
   }}
   .rank-badge.gold   {{ background: rgba(245,158,11,0.15); color: #f59e0b; }}
   .rank-badge.silver {{ background: rgba(156,163,175,0.15); color: #9ca3af; }}
   .rank-badge.bronze {{ background: rgba(180,83,9,0.15);   color: #b45309; }}
+  .pick-ticker {{
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }}
+  .pick-header-right {{
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }}
   .score-bar {{
     display: flex;
     align-items: center;
     gap: 6px;
   }}
+  .score-num {{
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    min-width: 24px;
+    text-align: right;
+  }}
   .score-track {{
-    width: 60px;
-    height: 4px;
+    width: 48px;
+    height: 3px;
     background: var(--surface-border);
     border-radius: 2px;
     overflow: hidden;
@@ -469,28 +506,42 @@ def render_screener(stocks, timestamp):
   .setup-tag.breakout-only    {{ background: rgba(34,197,94,0.12);  color: var(--gain); }}
   .setup-tag.squeeze-only     {{ background: rgba(245,158,11,0.12); color: var(--warn); }}
   .setup-tag.momentum-only    {{ background: rgba(6,182,212,0.12);  color: #06b6d4; }}
-  .risk-tag {{
-    display: inline-block;
-    padding: 2px 7px;
-    border-radius: 3px;
-    font-size: 10px;
-    font-weight: 500;
-  }}
-  .risk-tag.low    {{ background: rgba(34,197,94,0.1);  color: var(--gain); }}
-  .risk-tag.medium {{ background: rgba(245,158,11,0.1); color: var(--warn); }}
-  .risk-tag.high   {{ background: rgba(239,68,68,0.1);  color: var(--loss); }}
-  .top-pick-box {{
-    background: var(--surface-card);
-    border: 1px solid var(--surface-border);
-    border-left: 3px solid var(--accent);
-    border-radius: 6px;
-    padding: 14px 18px;
-    font-size: 12px;
+  .pick-thesis {{
+    padding: 10px 14px;
+    font-size: 11px;
     color: var(--muted);
     line-height: 1.6;
-    margin-bottom: 20px;
+    flex: 1;
   }}
-  .top-pick-box strong {{ color: var(--text); }}
+  .pick-stats {{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--surface-border);
+  }}
+  .pick-stat {{
+    padding: 8px 10px;
+    border-right: 1px solid var(--surface-border);
+  }}
+  .pick-stat:last-child {{ border-right: none; }}
+  .pick-stat-label {{
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--dim);
+    margin-bottom: 3px;
+  }}
+  .pick-stat-val {{
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }}
+  .pick-pattern {{
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 6px 14px 10px;
+  }}
   .pattern-tag {{
     display: inline-block;
     padding: 2px 6px;
@@ -501,39 +552,51 @@ def render_screener(stocks, timestamp):
   }}
   .pattern-tag.bullish {{ background: rgba(34,197,94,0.12); color: var(--gain); }}
   .pattern-tag.bearish {{ background: rgba(239,68,68,0.12); color: var(--loss); }}
-  .pattern-tag.none    {{ color: var(--dim); }}
-  .pattern-review {{
-    background: var(--surface-card);
-    border: 1px solid var(--surface-border);
-    border-radius: 6px;
-    padding: 14px 18px;
-    margin-bottom: 20px;
+  .pick-ta-notes {{
+    font-size: 10px;
+    color: var(--dim);
+    font-style: italic;
+    width: 100%;
+    margin-top: 2px;
   }}
-  .pattern-review h4 {{
+  .risk-tag {{
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+  }}
+  .risk-tag.low    {{ background: rgba(34,197,94,0.1);  color: var(--gain); }}
+  .risk-tag.medium {{ background: rgba(245,158,11,0.1); color: var(--warn); }}
+  .risk-tag.high   {{ background: rgba(239,68,68,0.1);  color: var(--loss); }}
+  /* agent notes box */
+  .agent-notes {{
+    background: rgba(99,102,241,0.04);
+    border: 1px solid rgba(99,102,241,0.15);
+    border-radius: 6px;
+    padding: 12px 16px;
     font-size: 11px;
+    color: var(--dim);
+    line-height: 1.6;
+  }}
+  .agent-notes-label {{
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--dim);
-    margin-bottom: 10px;
+    margin-bottom: 6px;
   }}
-  .pattern-review-line {{
-    font-size: 11px;
-    color: var(--muted);
-    padding: 3px 0;
-    border-bottom: 1px solid rgba(42,45,58,0.4);
-    line-height: 1.5;
-  }}
-  .pattern-review-line:last-child {{ border-bottom: none; }}
-  .pattern-review-line .ticker-label {{ color: var(--text); font-weight: 600; min-width: 40px; display: inline-block; }}
   .top-picks-loading {{
     padding: 20px 0;
     color: var(--dim);
     font-size: 12px;
   }}
   @media (max-width: 640px) {{
-    .top-picks {{ padding: 16px; }}
-    .picks-table {{ font-size: 11px; }}
+    .top-picks {{ padding: 16px 16px 20px; }}
+    .picks-grid {{ grid-template-columns: 1fr; }}
+    .pick-stats {{ grid-template-columns: repeat(2, 1fr); }}
+    .pick-stat:nth-child(2) {{ border-right: none; }}
   }}
 
   @media (max-width: 640px) {{
@@ -778,23 +841,6 @@ function setupTagClass(type) {{
   return 'momentum-only';
 }}
 
-function renderPatternReview(lines) {{
-  if (!lines || !lines.length) return '';
-  const linesHtml = lines.map(line => {{
-    // Highlight ticker label and ⚠️ flag
-    const formatted = line
-      .replace(/^(#\d+\s+)(\w+)/, (_, rank, ticker) =>
-        `${{rank}}<span class="ticker-label">${{ticker}}</span>`)
-      .replace('⚠️', '<span style="color:var(--loss)">⚠️</span>');
-    return `<div class="pattern-review-line">${{formatted}}</div>`;
-  }}).join('');
-  return `
-    <div class="pattern-review">
-      <h4>Chart pattern review (human verification layer)</h4>
-      ${{linesHtml}}
-    </div>`;
-}}
-
 function renderTopPicks(data) {{
   const meta = document.getElementById('topPicksMeta');
   const content = document.getElementById('topPicksContent');
@@ -809,60 +855,74 @@ function renderTopPicks(data) {{
 
   const rankClass = r => r === 1 ? 'gold' : r === 2 ? 'silver' : r === 3 ? 'bronze' : '';
 
-  const rows = data.top10.map(p => {{
+  const cards = data.top10.map(p => {{
     const scoreFill = Math.round(p.score || 0);
-    const siStr = p.si_pct != null ? p.si_pct.toFixed(1) + '%' : '—';
-    const dtcStr = p.days_to_cover != null ? p.days_to_cover.toFixed(1) : '—';
-    const distStr = p.dist_to_52w_high_pct != null ? p.dist_to_52w_high_pct.toFixed(1) + '%' : '—';
-    const volStr = p.volume_ratio != null ? p.volume_ratio.toFixed(1) + 'x' : '—';
+    const chgColor = p.change_pct_today >= 0 ? 'var(--gain)' : 'var(--loss)';
     const chgStr = p.change_pct_today != null
-      ? `<span style="color:${{p.change_pct_today >= 0 ? 'var(--gain)' : 'var(--loss)'}}">${{p.change_pct_today >= 0 ? '+' : ''}}${{p.change_pct_today.toFixed(2)}}%</span>`
-      : '—';
+      ? `<span style="color:${{chgColor}}">${{p.change_pct_today >= 0 ? '+' : ''}}${{p.change_pct_today.toFixed(2)}}%</span>`
+      : '<span style="color:var(--dim)">—</span>';
+    const volStr = p.volume_ratio != null ? p.volume_ratio.toFixed(1) + 'x' : '—';
+    const distStr = p.dist_to_52w_high_pct != null ? p.dist_to_52w_high_pct.toFixed(1) + '%' : '—';
+    const riskCls = (p.risk_flag || '').toLowerCase();
+    const riskLabel = p.risk_flag || '—';
 
-    const bullish = p.chart_bullish || 'none';
-    const bearish = p.chart_bearish || 'none';
-    const patternCell = (() => {{
-      const parts = [];
-      if (bullish !== 'none') parts.push(`<span class="pattern-tag bullish">&#8679; ${{bullish}}</span>`);
-      if (bearish !== 'none') parts.push(`<span class="pattern-tag bearish">&#8681; ${{bearish}}</span>`);
-      if (parts.length === 0) return '<span class="pattern-tag none">—</span>';
-      return parts.join(' ');
-    }})();
+    const bullish = p.chart_bullish && p.chart_bullish !== 'none' ? p.chart_bullish : null;
+    const bearish = p.chart_bearish && p.chart_bearish !== 'none' ? p.chart_bearish : null;
+    const notes = p.ta_chart_notes && p.ta_chart_notes.trim() ? p.ta_chart_notes.trim() : null;
+    const patternHtml = (bullish || bearish || notes) ? `
+      <div class="pick-pattern">
+        ${{bullish ? `<span class="pattern-tag bullish">&#8679; ${{bullish}}</span>` : ''}}
+        ${{bearish ? `<span class="pattern-tag bearish">&#8681; ${{bearish}}</span>` : ''}}
+        ${{notes ? `<span class="pick-ta-notes">${{notes}}</span>` : ''}}
+      </div>` : '';
 
-    return `<tr onclick="handleCardClick('${{p.ticker}}')">
-      <td><span class="rank-badge ${{rankClass(p.rank)}}">${{p.rank}}</span></td>
-      <td><strong style="color:var(--text)">${{p.ticker}}</strong></td>
-      <td>
-        <div class="score-bar">
-          <strong style="color:var(--accent);min-width:24px">${{p.score}}</strong>
-          <div class="score-track"><div class="score-fill" style="width:${{scoreFill}}%"></div></div>
+    return `<div class="pick-card" onclick="handleCardClick('${{p.ticker}}')">
+      <div class="pick-card-header">
+        <span class="rank-badge ${{rankClass(p.rank)}}">${{p.rank}}</span>
+        <span class="pick-ticker">${{p.ticker}}</span>
+        <div class="pick-header-right">
+          <div class="score-bar">
+            <span class="score-num">${{p.score}}</span>
+            <div class="score-track"><div class="score-fill" style="width:${{scoreFill}}%"></div></div>
+          </div>
+          <span class="setup-tag ${{setupTagClass(p.setup_type)}}">${{p.setup_type || '—'}}</span>
         </div>
-      </td>
-      <td><span class="setup-tag ${{setupTagClass(p.setup_type)}}">${{p.setup_type || '—'}}</span></td>
-      <td>${{chgStr}}</td>
-      <td>${{volStr}}</td>
-      <td>${{siStr}}</td>
-      <td>${{dtcStr}}</td>
-      <td>${{distStr}}</td>
-      <td><span class="risk-tag ${{(p.risk_flag||'').toLowerCase()}}">${{p.risk_flag || '—'}}</span></td>
-      <td style="max-width:160px;white-space:normal">${{patternCell}}</td>
-      <td style="color:var(--muted);max-width:260px;white-space:normal;font-size:11px">${{p.thesis || ''}}</td>
-    </tr>`;
+      </div>
+      <div class="pick-thesis">${{p.thesis || ''}}</div>
+      ${{patternHtml}}
+      <div class="pick-stats">
+        <div class="pick-stat">
+          <div class="pick-stat-label">Today</div>
+          <div class="pick-stat-val">${{chgStr}}</div>
+        </div>
+        <div class="pick-stat">
+          <div class="pick-stat-label">Vol</div>
+          <div class="pick-stat-val">${{volStr}}</div>
+        </div>
+        <div class="pick-stat">
+          <div class="pick-stat-label">52W dist</div>
+          <div class="pick-stat-val">${{distStr}}</div>
+        </div>
+        <div class="pick-stat">
+          <div class="pick-stat-label">Risk</div>
+          <div class="pick-stat-val"><span class="risk-tag ${{riskCls}}">${{riskLabel}}</span></div>
+        </div>
+      </div>
+    </div>`;
   }}).join('');
 
+  const rationaleHtml = data.top_pick_rationale
+    ? `<div class="pick-rationale"><strong>#1 ${{data.top10[0]?.ticker}} — </strong>${{data.top_pick_rationale}}</div>`
+    : '';
+
+  const notesHtml = data.notes
+    ? `<div class="agent-notes"><div class="agent-notes-label">Agent notes</div>${{data.notes}}</div>`
+    : '';
+
   content.innerHTML = `
-    <table class="picks-table">
-      <thead>
-        <tr>
-          <th>#</th><th>Ticker</th><th>Score</th><th>Setup</th>
-          <th>Today</th><th>Vol ratio</th><th>SI%</th><th>DTC</th>
-          <th>To 52W high</th><th>Risk</th><th>Chart pattern</th><th>Thesis</th>
-        </tr>
-      </thead>
-      <tbody>${{rows}}</tbody>
-    </table>
-    ${{data.top_pick_rationale ? `<div class="top-pick-box"><strong>#1 Pick — ${{data.top10[0]?.ticker}}:</strong> ${{data.top_pick_rationale}}</div>` : ''}}
-    ${{renderPatternReview(data.chart_pattern_review)}}
+    ${{rationaleHtml}}
+    <div class="picks-grid">${{cards}}</div>
+    ${{notesHtml}}
   `;
 }}
 

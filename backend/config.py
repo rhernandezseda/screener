@@ -19,7 +19,7 @@ Run `python screener.py` after saving to apply the new filters.
 SITE_FILTERS = [
     ("marketCap",     "Market Cap",            ("Over", "2000")),   # > $2B (site unit: millions)
     ("price",         "Stock Price",           ("Over", "9")),      # > $9
-    ("dividendYield", "Dividend Yield",        "No Dividend"),
+    ("dividendYield", "Dividend Yield",        ("Under", "1")),  # < 1% (includes no dividend)
     ("revenueGrowth", "Revenue Growth",        "Over 20%"),
     ("averageVolume", "Average Volume",        ("Over", "200000")), # > 200K
     ("epsNextYear",   "EPS Growth Next Year",  "Over 0%"),
