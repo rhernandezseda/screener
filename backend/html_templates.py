@@ -666,7 +666,7 @@ def render_screener(stocks, timestamp):
 <script>
 const RAW = {stocks_json};
 const ANALYSIS_PAGE = 'analysis.html';
-const SERVER = window.BACKEND_URL || 'http://localhost:8765';
+const SERVER = '';
 
 function refreshScreener() {{
   const btn = document.getElementById('btnRefresh');
