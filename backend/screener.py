@@ -247,6 +247,8 @@ def run_screener():
 
         if mc < 2.0:
             continue                         # under $2B market cap
+        if mc > 225.0:
+            continue                         # over $225B market cap
         if h52 is not None and h52 < -20:
             continue                         # more than 20% below 52W high
         if eps_ny is not None and eps_ny < 0:
