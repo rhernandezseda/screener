@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from zoneinfo import ZoneInfo
-from config import REFRESH_INTERVAL_HOURS, REFRESH_DAY_OF_WEEK, SHORTLIST_DAYS, SHORTLIST_LOCAL_TIME, SHORTLIST_TIMEZONE
+from config import REFRESH_INTERVAL_HOURS, REFRESH_DAY_OF_WEEK, SHORTLIST_ENABLED, SHORTLIST_DAYS, SHORTLIST_LOCAL_TIME, SHORTLIST_TIMEZONE
 
 PORT = int(os.environ.get("PORT", 8765))
 ROOT = Path(__file__).parent
@@ -104,8 +104,9 @@ def screener_scheduler():
 
 
 def shortlist_scheduler():
-    """Run the shortlist agent at SHORTLIST_LOCAL_TIME on SHORTLIST_DAYS (Madrid time).
-    Also fires once at startup."""
+    if not SHORTLIST_ENABLED:
+        print("  [shortlist-scheduler] Disabled (SHORTLIST_ENABLED=False).", flush=True)
+        return
     tz = ZoneInfo(SHORTLIST_TIMEZONE)
     hour, minute = SHORTLIST_LOCAL_TIME
     day_names = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]

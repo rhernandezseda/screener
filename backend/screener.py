@@ -11,6 +11,7 @@ import json
 import os
 import time
 import re
+import threading
 from datetime import datetime
 from pathlib import Path
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
@@ -251,6 +252,8 @@ def run_screener():
             continue                         # over $225B market cap
         if h52 is not None and h52 < -20:
             continue                         # more than 20% below 52W high
+        if h52 is not None and h52 > 0:
+            continue                         # already above 52W high (already ran)
         if eps_ny is not None and eps_ny < 0:
             continue                         # explicitly negative EPS next year
 
@@ -294,10 +297,57 @@ def run_screener():
     json_path.write_text(json.dumps(data, indent=2))
     print(f"  Data saved to {json_path}")
 
+    # Fetch sector/industry in background — doesn't block screener completion
+    tickers = [s["ticker"] for s in stocks]
+    threading.Thread(target=fetch_sector_cache, args=(tickers,), daemon=True).start()
+
     # Generate HTML
     generate_screener_html(stocks, ts)
 
     return stocks
+
+
+def fetch_sector_cache(tickers: list):
+    """Fetch sector+industry for each ticker via yfinance and save to sector_cache.json.
+    Runs in a background thread so it doesn't block screener completion.
+    Merges with any existing cache so data accumulates over time."""
+    import yfinance as yf
+
+    cache_path = DATA_DIR / "sector_cache.json"
+    try:
+        cache = json.loads(cache_path.read_text()) if cache_path.exists() else {}
+    except Exception:
+        cache = {}
+
+    lock = threading.Lock()
+    changed = [False]
+
+    def worker(ticker):
+        if ticker in cache:
+            return
+        try:
+            info = yf.Ticker(ticker).info
+            sector   = info.get("sector") or ""
+            industry = info.get("industry") or ""
+            if sector or industry:
+                with lock:
+                    cache[ticker] = {"sector": sector, "industry": industry}
+                    changed[0] = True
+        except Exception:
+            pass
+
+    threads = [threading.Thread(target=worker, args=(t,)) for t in tickers]
+    batch_size = 20
+    for i in range(0, len(threads), batch_size):
+        batch = threads[i:i + batch_size]
+        for t in batch:
+            t.start()
+        for t in batch:
+            t.join()
+
+    if changed[0]:
+        cache_path.write_text(json.dumps(cache, indent=2))
+        print(f"  sector_cache.json updated ({len(cache)} entries).")
 
 
 def generate_screener_html(stocks, timestamp):

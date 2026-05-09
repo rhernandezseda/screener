@@ -43,6 +43,8 @@ REFRESH_INTERVAL_HOURS = 0  # legacy — unused when REFRESH_DAY_OF_WEEK >= 0
 # ── Shortlist agent schedule ───────────────────────────────────────────────────
 # Days (0=Mon … 6=Sun) on which the agent runs at SHORTLIST_LOCAL_TIME.
 # Also runs once on server startup.
+# Set SHORTLIST_ENABLED = False to disable entirely.
+SHORTLIST_ENABLED = False
 SHORTLIST_DAYS = {0, 1, 2, 3, 5}  # Mon, Tue, Wed, Thu, Sat
 SHORTLIST_LOCAL_TIME = (21, 30)    # 9:30 PM local
 SHORTLIST_TIMEZONE = "Europe/Madrid"

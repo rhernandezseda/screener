@@ -305,6 +305,27 @@ def render_screener(stocks, timestamp):
     margin-top: auto;
     padding: 12px 16px;
   }}
+  /* industry label strip */
+  .card-industry {{
+    padding: 4px 14px;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--surface-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }}
+  .card-industry-hl {{
+    color: rgba(99,102,241,0.7);
+  }}
+  .card-priority {{
+    border-color: rgba(99,102,241,0.25);
+  }}
+  .card-priority:hover {{
+    border-color: rgba(99,102,241,0.55);
+  }}
   .btn-analyze {{
     display: block;
     width: 100%;
@@ -366,6 +387,27 @@ def render_screener(stocks, timestamp):
   }}
   .btn-refresh:hover {{ background: rgba(99,102,241,0.2); border-color: var(--accent); }}
   .btn-refresh:disabled {{ opacity: 0.5; cursor: wait; }}
+  .btn-toggle {{
+    background: rgba(99,102,241,0.15);
+    border: 1px solid rgba(99,102,241,0.5);
+    color: var(--accent);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }}
+  .btn-toggle:hover {{ background: rgba(99,102,241,0.25); }}
+  .btn-toggle.off {{
+    background: transparent;
+    border-color: var(--surface-border);
+    color: var(--dim);
+  }}
+  .btn-toggle.off:hover {{ border-color: var(--muted); color: var(--muted); }}
 
   /* ── TOP PICKS ── */
   .top-picks {{
@@ -664,6 +706,7 @@ def render_screener(stocks, timestamp):
     <option value="price">Price ↓</option>
     <option value="ticker">Ticker A–Z</option>
   </select>
+  <button class="btn-toggle" id="btnSectorFilter" onclick="toggleSectorFilter()">&#9673; Focus sectors</button>
   <button class="btn-refresh" id="btnRefresh" onclick="refreshScreener()">↺ Refresh Screener</button>
   <span class="toolbar-count" id="toolbarCount">Showing {count} of {count}</span>
 </div>
@@ -681,6 +724,46 @@ def render_screener(stocks, timestamp):
 const RAW = {stocks_json};
 const ANALYSIS_PAGE = 'analysis.html';
 const SERVER = '';
+
+// Sector cache — loaded async, merged into RAW entries before first render
+let SECTOR_CACHE = {{}};
+const PRIORITY_SECTORS = new Set(['Technology', 'Financial Services', 'Healthcare', 'Communication Services', 'Consumer Cyclical']);
+const PRIORITY_INDUSTRIES = new Set(['Education & Training Services']);
+const HIGHLIGHT_SECTORS = new Set(['Technology', 'Financial Services', 'Healthcare', 'Communication Services', 'Consumer Cyclical']);
+
+let sectorFilterOn = true;
+
+function toggleSectorFilter() {{
+  sectorFilterOn = !sectorFilterOn;
+  const btn = document.getElementById('btnSectorFilter');
+  if (sectorFilterOn) {{
+    btn.classList.remove('off');
+    btn.textContent = '⬤ Focus sectors';
+  }} else {{
+    btn.classList.add('off');
+    btn.textContent = '○ Focus sectors';
+  }}
+  filterAndSort();
+}}
+
+function sectorPriority(s) {{
+  const sec = (SECTOR_CACHE[s.ticker] || {{}}).sector || '';
+  const ind = (SECTOR_CACHE[s.ticker] || {{}}).industry || '';
+  return (PRIORITY_SECTORS.has(sec) || PRIORITY_INDUSTRIES.has(ind)) ? 0 : 1;
+}}
+
+fetch('/data/sector_cache.json')
+  .then(r => r.ok ? r.json() : {{}})
+  .then(data => {{
+    SECTOR_CACHE = data;
+    // Merge into RAW so renderCard can access it
+    RAW.forEach(s => {{
+      const sc = SECTOR_CACHE[s.ticker];
+      if (sc) {{ s._sector = sc.sector; s._industry = sc.industry; }}
+    }});
+    filterAndSort();
+  }})
+  .catch(() => {{}});
 
 function refreshScreener() {{
   const btn = document.getElementById('btnRefresh');
@@ -748,13 +831,24 @@ function renderCard(s) {{
     largeChartUrl: "",
   }}));
 
-  return `<div class="card" onclick="handleCardClick('${{s.ticker}}')">
+  const sector   = s._sector   || '';
+  const industry = s._industry || '';
+  const industryLabel = sector && industry ? `${{sector}} › ${{industry}}`
+                      : sector || industry || '';
+  const highlighted = HIGHLIGHT_SECTORS.has(sector) || PRIORITY_INDUSTRIES.has(industry);
+  const cardClass = `card${{highlighted ? ' card-priority' : ''}}`;
+  const industryHtml = industryLabel
+    ? `<div class="card-industry${{highlighted ? ' card-industry-hl' : ''}}">${{industryLabel}}</div>`
+    : '';
+
+  return `<div class="${{cardClass}}" onclick="handleCardClick('${{s.ticker}}')">
     <div class="card-chart">
       <iframe
         data-src="https://s.tradingview.com/embed-widget/mini-symbol-overview/?locale=en#${{chartParams}}"
         title="Chart ${{s.ticker}}"
       ></iframe>
     </div>
+    ${{industryHtml}}
     <div class="stats-row">
       <div class="stat stat-green">
         <div class="stat-label">Revenue YoY</div>
@@ -788,8 +882,21 @@ function filterAndSort() {{
     s.name.toLowerCase().includes(q)
   );
 
+  if (sectorFilterOn) {{
+    filtered = filtered.filter(s =>
+      !s._sector ||
+      PRIORITY_SECTORS.has(s._sector) ||
+      PRIORITY_INDUSTRIES.has(s._industry || '')
+    );
+  }}
+
   filtered.sort((a, b) => {{
-    if (sort === 'quality')       return (b._quality || 0) - (a._quality || 0);
+    // Priority sectors float to top on quality sort only
+    if (sort === 'quality') {{
+      const pd = sectorPriority(a) - sectorPriority(b);
+      if (pd !== 0) return pd;
+      return (b._quality || 0) - (a._quality || 0);
+    }}
     if (sort === 'ticker')        return a.ticker.localeCompare(b.ticker);
     if (sort === 'market_cap')    return parseNum(b.market_cap) - parseNum(a.market_cap);
     if (sort === 'price')         return parsePct(b.price) - parsePct(a.price);
