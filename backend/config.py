@@ -23,6 +23,7 @@ SITE_FILTERS = [
     ("revenueGrowth", "Revenue Growth",        "Over 20%"),
     ("averageVolume", "Average Volume",        ("Over", "200000")), # > 200K
     ("epsNextYear",   "EPS Growth Next Year",  "Over 0%"),
+    ("epsGrowthQ",    "EPS Growth (Q)",        "Over 20%"),         # EPS YoY (same quarter last year) > 20%
     ("high52ch",      "Price Change 52W High", ("Over", "-20")),    # within 20% of 52W high
 ]
 
@@ -30,8 +31,7 @@ SITE_FILTERS = [
 # Added to the table for card display but NOT used as filters.
 
 DISPLAY_COLUMNS = [
-    ("epsGrowth",  "EPS Growth"),       # EPS growth YoY (annual)
-    ("epsGrowthQ", "EPS Growth (Q)"),   # EPS growth QoQ (quarterly)
+    ("epsGrowth",  "EPS Growth"),       # EPS growth QoQ (sequential quarter)
     ("exchange",   "Exchange"),         # NYSE / NASDAQ — used for TradingView symbol prefix
 ]
 
