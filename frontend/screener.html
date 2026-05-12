@@ -107,6 +107,7 @@
   }
   .counter {
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
     gap: 10px;
   }
@@ -119,6 +120,12 @@
   .counter-label {
     color: var(--muted);
     font-size: 14px;
+  }
+  .counter-updated {
+    flex-basis: 100%;
+    color: var(--muted);
+    font-size: 12px;
+    opacity: 0.7;
   }
 
   /* ── TOOLBAR ── */
@@ -403,6 +410,7 @@
   <div class="counter">
     <span class="counter-num" id="matchCount">—</span>
     <span class="counter-label">stocks pass all filters</span>
+    <span class="counter-updated" id="counterUpdated"></span>
   </div>
 </header>
 
@@ -448,13 +456,11 @@ let lastTimestamp = '';
 
 function fmtTimestamp(iso) {
   if (!iso) return '';
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const totalMins = Math.floor(diffMs / 60000);
-  const hours = Math.floor(totalMins / 60);
-  const mins = totalMins % 60;
-  if (hours === 0) return `Updated ${mins}m ago`;
-  if (mins === 0) return `Updated ${hours}h ago`;
-  return `Updated ${hours}h ${mins}m ago`;
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, {
+    weekday: 'short', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit'
+  });
 }
 
 function parsePct(s) {
@@ -575,10 +581,9 @@ function loadData() {
       lastTimestamp = data.timestamp || '';
 
       const ts = fmtTimestamp(lastTimestamp);
-      document.getElementById('heroSub').textContent =
-        (ts ? ts + ' · ' : '') + 'via stockanalysis.com';
-      document.getElementById('footerLeft').textContent =
-        'US Growth Screener · ' + (ts || 'Farseer');
+      document.getElementById('counterUpdated').textContent = ts ? `Updated ${ts}` : '';
+      document.getElementById('heroSub').textContent = 'via stockanalysis.com';
+      document.getElementById('footerLeft').textContent = 'US Growth Screener · Farseer';
 
       const chips = data.chips || [];
       document.getElementById('chipsRow').innerHTML =
