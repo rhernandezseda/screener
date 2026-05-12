@@ -19,11 +19,11 @@ Run `python screener.py` after saving to apply the new filters.
 SITE_FILTERS = [
     ("marketCap",     "Market Cap",            ("Over", "2000")),   # > $2B (site unit: millions)
     ("price",         "Stock Price",           ("Over", "9")),      # > $9
-    ("dividendYield", "Dividend Yield",        ("Under", "1")),  # < 1% (includes no dividend)
-    ("revenueGrowth", "Revenue Growth",        "Over 20%"),
+    ("dividendYield", "Dividend Yield",        ("Under", "1")),     # < 1% (includes no dividend)
+    ("revenueGrowth", "Revenue Growth",        "Over 20%"),         # revenue YoY > 20%
     ("averageVolume", "Average Volume",        ("Over", "200000")), # > 200K
-    ("epsNextYear",   "EPS Growth Next Year",  "Over 0%"),
-    ("epsGrowthQ",    "EPS Growth (Q)",        "Over 20%"),         # EPS YoY (same quarter last year) > 20%
+    ("epsNextYear",   "EPS Growth Next Year",  "Over 0%"),          # positive forward EPS
+    ("epsGrowth",     "EPS Growth",            "Over 20%"),         # EPS same-quarter YoY > 20%
     ("high52ch",      "Price Change 52W High", ("Over", "-20")),    # within 20% of 52W high
 ]
 
@@ -31,8 +31,8 @@ SITE_FILTERS = [
 # Added to the table for card display but NOT used as filters.
 
 DISPLAY_COLUMNS = [
-    ("epsGrowth",  "EPS Growth"),       # EPS growth QoQ (sequential quarter)
-    ("exchange",   "Exchange"),         # NYSE / NASDAQ — used for TradingView symbol prefix
+    ("epsGrowthQ", "EPS Growth (Q)"),   # EPS sequential QoQ (display only)
+    ("exchange",   "Exchange"),         # NYSE / NASDAQ
 ]
 
 # ── Auto-refresh schedule ─────────────────────────────────────────────────────

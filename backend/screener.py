@@ -132,23 +132,40 @@ def parse_num(val):
 def extract_table_page(page):
     rows = page.evaluate("""() => {
         const results = [];
+
+        // Build a header→index map so column order changes don't break extraction
+        const headers = [];
+        document.querySelectorAll('table thead th').forEach(th => {
+            headers.push(th.innerText.trim().toLowerCase());
+        });
+        const idx = (name) => headers.indexOf(name);
+
+        // Known header texts on stockanalysis.com screener
+        const iRevGrowth  = idx('revenue growth');
+        const iAvgVol     = idx('avg volume');
+        const iEpsGrowth  = idx('eps growth');
+        const iEpsGrowthQ = idx('eps growth (q)');
+        const iEpsNextYr  = idx('eps next year');
+        const iHigh52     = idx('52w high chg');  // may vary
+        const iExchange   = idx('exchange');
+
         document.querySelectorAll('table tbody tr').forEach(r => {
             const c = r.querySelectorAll('td');
-            if (c.length >= 8) {
-                results.push({
-                    ticker:        c[0]?.innerText?.trim() || '',
-                    name:          c[1]?.innerText?.trim() || '',
-                    market_cap:    c[2]?.innerText?.trim() || '',
-                    price:         c[3]?.innerText?.trim() || '',
-                    revenue_growth:c[5]?.innerText?.trim() || '',
-                    avg_volume:    c[6]?.innerText?.trim() || '',
-                    eps_growth:    c[7]?.innerText?.trim() || '',
-                    eps_growth_q:  c[8]?.innerText?.trim() || '',
-                    eps_next_year: c[9]?.innerText?.trim() || '',
-                    high_52w_chg:  c[10]?.innerText?.trim() || '',
-                    exchange:      c[11]?.innerText?.trim() || '',
-                });
-            }
+            if (c.length < 8) return;
+            const cell = (i) => (i >= 0 && c[i]) ? c[i].innerText.trim() : '';
+            results.push({
+                ticker:         c[0]?.innerText?.trim() || '',
+                name:           c[1]?.innerText?.trim() || '',
+                market_cap:     c[2]?.innerText?.trim() || '',
+                price:          c[3]?.innerText?.trim() || '',
+                revenue_growth: cell(iRevGrowth),
+                avg_volume:     cell(iAvgVol),
+                eps_growth:     cell(iEpsGrowth),
+                eps_growth_q:   cell(iEpsGrowthQ),
+                eps_next_year:  cell(iEpsNextYr),
+                high_52w_chg:   cell(iHigh52),
+                exchange:       cell(iExchange),
+            });
         });
         return results;
     }""")
@@ -250,10 +267,6 @@ def run_screener():
             continue                         # under $2B market cap
         if mc > 225.0:
             continue                         # over $225B market cap
-        if h52 is not None and h52 < -20:
-            continue                         # more than 20% below 52W high
-        if h52 is not None and h52 > 0:
-            continue                         # already above 52W high (already ran)
         if eps_ny is not None and eps_ny < 0:
             continue                         # explicitly negative EPS next year
 
