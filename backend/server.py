@@ -16,7 +16,7 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -157,6 +157,8 @@ class Handler(BaseHTTPRequestHandler):
             running = _shortlist_proc is not None and _shortlist_proc.poll() is None
             ready = (DATA_DIR / "shortlist.json").exists()
             self._json(200, {"running": running, "ready": ready})
+        elif parsed.path.startswith("/data/chart/"):
+            self._handle_chart(parsed.path)
         elif parsed.path.startswith("/data/"):
             self._handle_file(parsed.path)
         else:
@@ -214,6 +216,52 @@ class Handler(BaseHTTPRequestHandler):
         self._cors_headers()
         self.end_headers()
         self.wfile.write(body)
+
+    def _handle_chart(self, path):
+        # path: /data/chart/TICKER
+        ticker = path.split("/data/chart/")[-1].upper().strip()
+        if not ticker or not ticker.replace(".", "").replace("-", "").isalnum():
+            self._json(400, {"error": "invalid ticker"})
+            return
+
+        cache_path = DATA_DIR / f"chart_{ticker}.json"
+        if cache_path.exists():
+            age = datetime.now(timezone.utc) - datetime.fromtimestamp(cache_path.stat().st_mtime, tz=timezone.utc)
+            if age < timedelta(hours=24):
+                body = cache_path.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self._cors_headers()
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
+        try:
+            import yfinance as yf
+            hist = yf.Ticker(ticker).history(period="1y", interval="1wk", auto_adjust=True)
+            if hist.empty:
+                self._json(404, {"error": "no data"})
+                return
+            candles = []
+            for ts, row in hist.iterrows():
+                candles.append({
+                    "time": int(ts.timestamp()),
+                    "open":  round(float(row["Open"]),  2),
+                    "high":  round(float(row["High"]),  2),
+                    "low":   round(float(row["Low"]),   2),
+                    "close": round(float(row["Close"]), 2),
+                })
+            body = json.dumps(candles).encode()
+            cache_path.write_bytes(body)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self._cors_headers()
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception as e:
+            self._json(500, {"error": str(e)})
 
     def _handle_file(self, path):
         # Serve files from OUTPUT_DIR, restricted to data/ subdirectory

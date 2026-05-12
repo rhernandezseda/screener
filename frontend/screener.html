@@ -6,6 +6,7 @@
 <title>Farseer · US Growth Screener</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <style>
   :root {
     --surface:        #0f1117;
@@ -126,6 +127,23 @@
     color: var(--muted);
     font-size: 12px;
     opacity: 0.7;
+  }
+
+  /* ── CHART ── */
+  .chart-container {
+    height: 140px;
+    border-bottom: 1px solid var(--surface-border);
+    position: relative;
+    overflow: hidden;
+  }
+  .chart-container .chart-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--dim);
+    font-size: 11px;
   }
 
   /* ── TOOLBAR ── */
@@ -527,6 +545,9 @@ function renderCard(s) {
         <div class="stat-val">${s.eps_next_year}</div>
       </div>
     </div>
+    <div class="chart-container" data-ticker="${s.ticker}">
+      <div class="chart-placeholder">Loading chart…</div>
+    </div>
     <div class="card-footer">
       <span class="btn-analyze" id="btn-${s.ticker}">&#x23F3; Analyze ${s.ticker}</span>
     </div>
@@ -568,6 +589,7 @@ function filterAndSort() {
     return;
   }
   grid.innerHTML = filtered.map(s => renderCard(s)).join('');
+  attachChartObservers();
 }
 
 function loadData() {
@@ -595,6 +617,56 @@ function loadData() {
       document.getElementById('grid').innerHTML =
         `<div class="empty"><h2>Could not load data</h2><p>Make sure the backend is running.<br><small>${err.message}</small></p></div>`;
       document.getElementById('heroSub').textContent = 'Backend unreachable';
+    });
+}
+
+const _chartObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const el = entry.target;
+    _chartObserver.unobserve(el);
+    loadChart(el);
+  });
+}, { rootMargin: '100px' });
+
+function attachChartObservers() {
+  document.querySelectorAll('.chart-container[data-ticker]').forEach(el => {
+    _chartObserver.observe(el);
+  });
+}
+
+function loadChart(el) {
+  const ticker = el.dataset.ticker;
+  fetch(`${SERVER}/data/chart/${ticker}`)
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(candles => {
+      el.innerHTML = '';
+      const chart = LightweightCharts.createChart(el, {
+        width:  el.clientWidth,
+        height: 140,
+        layout: { background: { color: 'transparent' }, textColor: '#6b7280' },
+        grid:   { vertLines: { color: '#2a2d3a' }, horzLines: { color: '#2a2d3a' } },
+        rightPriceScale: { borderColor: '#2a2d3a', scaleMargins: { top: 0.1, bottom: 0.1 } },
+        timeScale: { borderColor: '#2a2d3a', timeVisible: false },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Magnet },
+        handleScroll: false,
+        handleScale:  false,
+      });
+      const series = chart.addCandlestickSeries({
+        upColor:        '#22c55e',
+        downColor:      '#ef4444',
+        borderUpColor:  '#22c55e',
+        borderDownColor:'#ef4444',
+        wickUpColor:    '#22c55e',
+        wickDownColor:  '#ef4444',
+      });
+      series.setData(candles);
+      chart.timeScale().fitContent();
+      const ro = new ResizeObserver(() => chart.applyOptions({ width: el.clientWidth }));
+      ro.observe(el);
+    })
+    .catch(() => {
+      el.innerHTML = '<div class="chart-placeholder">Chart unavailable</div>';
     });
 }
 
