@@ -12,7 +12,7 @@ import os
 import time
 import re
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 from config import SITE_FILTERS, DISPLAY_COLUMNS
@@ -291,7 +291,7 @@ def run_screener():
 
     # Save JSON
     from html_templates import _build_chips
-    ts = datetime.now().isoformat()
+    ts = datetime.now(timezone.utc).isoformat()
     data = {"timestamp": ts, "count": len(stocks), "chips": _build_chips(), "stocks": stocks}
     json_path = DATA_DIR / "screener.json"
     json_path.write_text(json.dumps(data, indent=2))
