@@ -40,9 +40,8 @@ def main():
         subprocess.run([sys.executable, str(ROOT / "screener.py")], check=True)
 
         # Open the result in the browser
-        screener_html = OUTPUT_DIR / "screener.html"
-        print(f"\n  Opening {screener_html}...")
-        webbrowser.open(f"file://{screener_html.resolve()}")
+        print(f"\n  Opening http://localhost:8765 ...")
+        webbrowser.open("http://localhost:8765")
 
     finally:
         # Keep server alive so card clicks keep working

@@ -301,9 +301,6 @@ def run_screener():
     tickers = [s["ticker"] for s in stocks]
     threading.Thread(target=fetch_sector_cache, args=(tickers,), daemon=True).start()
 
-    # Generate HTML
-    generate_screener_html(stocks, ts)
-
     return stocks
 
 
@@ -348,15 +345,6 @@ def fetch_sector_cache(tickers: list):
     if changed[0]:
         cache_path.write_text(json.dumps(cache, indent=2))
         print(f"  sector_cache.json updated ({len(cache)} entries).")
-
-
-def generate_screener_html(stocks, timestamp):
-    from html_templates import render_screener
-    html = render_screener(stocks, timestamp)
-    out = OUTPUT_DIR / "screener.html"
-    out.write_text(html, encoding="utf-8")
-    print(f"  screener.html saved to {out}")
-    print(f"\n  Open: file://{out.resolve()}\n")
 
 
 if __name__ == "__main__":
